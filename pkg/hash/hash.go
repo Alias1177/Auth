@@ -1,0 +1,3 @@
+package hash
+
+//TODO хэширование
