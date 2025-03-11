@@ -2,35 +2,58 @@ package config
 
 import (
 	"github.com/ilyakaznacheev/cleanenv"
+	"github.com/redis/go-redis/v9"
 	"log"
 )
 
+// RedisConfig конфигурация для Redis
+type RedisConfig struct {
+	Addr     string `env:"REDIS_ADDR" env-default:"localhost:6379"`
+	Password string `env:"REDIS_PASSWORD" env-default:""`
+	DB       int    `env:"REDIS_DB" env-default:"0"`
+}
+
+// DatabaseConfig конфигурация для PostgreSQL
 type DatabaseConfig struct {
 	DSN string `env:"DATABASE_DSN" env-required:"true"`
 }
 
+// JWTConfig конфигурация для JWT
 type JWTConfig struct {
 	Secret string `env:"JWT_SECRET" env-required:"true"`
 }
 
+// Config общая конфигурация приложения
 type Config struct {
 	Database DatabaseConfig
+	Redis    RedisConfig
 	JWT      JWTConfig
 }
 
-func Load(path string) Config {
-	var cfg Config
+// NewRedisClient создает новый клиент Redis на основе конфигурации
+func NewRedisClient(cfg RedisConfig) *redis.Client {
+	return redis.NewClient(&redis.Options{
+		Addr:     cfg.Addr,
+		Password: cfg.Password,
+		DB:       cfg.DB,
+	})
+}
 
-	err := cleanenv.ReadConfig(path, &cfg)
+// Load загружает конфигурацию из файла и переменных окружения
+func Load(path string) (*Config, error) {
+	cfg := &Config{}
+
+	// Читаем конфигурацию из файла
+	err := cleanenv.ReadConfig(path, cfg)
 	if err != nil {
-		log.Fatalf("Unable to read config: %v", err)
+		log.Printf("Warning: не удалось прочитать конфигурационный файл: %v", err)
 	}
 
-	err = cleanenv.ReadEnv(&cfg)
+	// Читаем переменные окружения
+	err = cleanenv.ReadEnv(cfg)
 	if err != nil {
-
-		log.Fatalf("Unable to read environment variables: %v", err)
+		return nil, err
 	}
 
-	return cfg
+	return cfg, nil
 }
