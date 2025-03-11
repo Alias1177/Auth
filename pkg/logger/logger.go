@@ -1,118 +1,112 @@
 package logger
 
 import (
-	"context"
 	"fmt"
-	"net/http"
 	"os"
-	"sync"
-	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
-	stdlog "log"
+	liblog "log"
 )
 
-// LoggerInterface определяет интерфейс для логгера.
-type LoggerInterface interface {
+// ColorConfig defines color settings for console output.
+type ColorConfig struct {
+	EnableColors bool
+	LevelColors  map[zapcore.Level]string // Mapping of log levels to colors (ANSI codes)
+}
+
+// StructuredLogger is an interface for structured logging.
+type StructuredLogger interface {
 	Debugw(msg string, keysAndValues ...interface{})
 	Infow(msg string, keysAndValues ...interface{})
 	Warnw(msg string, keysAndValues ...interface{})
 	Errorw(msg string, keysAndValues ...interface{})
 	Fatalw(msg string, keysAndValues ...interface{})
 	Panicw(msg string, keysAndValues ...interface{})
-	With(args ...interface{}) *zap.SugaredLogger
+	Close() error
 }
 
-// Logger обёртка zap.SugaredLogger, реализующая LoggerInterface.
+// ContextAwareLogger is an interface for adding context to the logger.
+type ContextAwareLogger interface {
+	WithFields(fields map[string]interface{}) StructuredLogger
+}
+
+// Logger is a wrapper around zap.SugaredLogger.
 type Logger struct {
 	*zap.SugaredLogger
 }
 
-// LogType определяет тип логгера.
-type LogType string
+// CoreCreator is an interface for creating a logger core.
+type CoreCreator interface {
+	Create(config LogConfig, level zap.AtomicLevel) (zapcore.Core, error)
+}
 
-type 
-
-const (
-	LogTypeConsole LogType = "console"
-	LogTypeFile    LogType = "file"
-	LogTypeRotate  LogType = "rotate"
-	LogTypeMulti   LogType = "multi"
-)
-
-const (
-	name =
-)
-
-// LogConfig конфигурация логгера.
+// LogConfig is the base configuration for the logger.
 type LogConfig struct {
-	LogType        LogType // "console", "file", "rotate", "multi"
-	Level          string  // "debug", "info", "warn", "error"
+	Type           LogType
+	Level          LogLevel
 	Development    bool
-	FilePath       string
-	InfoFilePath   string
-	ErrorFilePath  string
-	MaxSize        int // in MB
-	MaxAge         int // in days
-	MaxBackups     int
 	ServiceName    string
 	Version        string
 	Environment    string
 	RedirectStdLog bool
+	Options        interface{}  // Type-specific settings
+	ColorConfig    *ColorConfig // Color settings (optional)
 }
 
-// validate проверяет корректность конфигурации.
-func (c LogConfig) validate() error {
-	switch c.LogType {
+// RotateOptions defines settings for log rotation.
+type RotateOptions struct {
+	FilePath   string
+	MaxSize    int
+	MaxAge     int
+	MaxBackups int
+}
+
+// MultiOptions defines settings for a multi-logger.
+type MultiOptions struct {
+	InfoFilePath  string
+	ErrorFilePath string
+	MaxSize       int
+	MaxAge        int
+	MaxBackups    int
+}
+
+// validate checks the configuration for validity.
+func (c *LogConfig) validate() error {
+	switch c.Type {
 	case LogTypeFile, LogTypeRotate:
-		if c.FilePath == "" {
-			return fmt.Errorf("FilePath is required for log type %q", c.LogType)
+		if opts, ok := c.Options.(RotateOptions); !ok || opts.FilePath == "" {
+			return fmt.Errorf("FilePath is required for log type %q", c.Type)
 		}
 	case LogTypeMulti:
-		if c.InfoFilePath == "" || c.ErrorFilePath == "" {
-			return fmt.Errorf("InfoFilePath and ErrorFilePath are required for log type %q", c.LogType)
+		if opts, ok := c.Options.(MultiOptions); !ok || opts.InfoFilePath == "" || opts.ErrorFilePath == "" {
+			return fmt.Errorf("InfoFilePath and ErrorFilePath are required for log type %q", c.Type)
 		}
 	case LogTypeConsole:
-		// Ничего не требуется
+		// No specific requirements
 	default:
-		return fmt.Errorf("unknown log type: %s", c.LogType)
+		return fmt.Errorf("unknown log type: %s", c.Type)
 	}
-	if c.MaxSize < 0 || c.MaxAge < 0 || c.MaxBackups < 0 {
-		return fmt.Errorf("MaxSize, MaxAge, and MaxBackups must be non-negative")
+
+	if _, err := zapcore.ParseLevel(string(c.Level)); err != nil {
+		return fmt.Errorf("invalid log level %q: %w", c.Level, err)
 	}
+
 	return nil
 }
 
-// logCounter счётчик метрик для Prometheus.
-var logCounter = prometheus.NewCounterVec(
-	prometheus.CounterOpts{
-		Name: "log_messages_total",
-		Help: "Total number of log messages by level.",
-	},
-	[]string{"level"},
-)
-
-func init() {
-	prometheus.MustRegister(logCounter)
-}
-
-// NewLogger создаёт новый логгер в зависимости от конфигурации.
+// NewLogger creates a new logger instance.
 func NewLogger(config LogConfig) (*Logger, error) {
 	if err := config.validate(); err != nil {
 		return nil, err
 	}
 
-	level, err := zapcore.ParseLevel(config.Level)
-	if err != nil {
-		return nil, fmt.Errorf("invalid log level %q: %w", config.Level, err)
-	}
+	level, _ := zapcore.ParseLevel(string(config.Level))
 	atomicLevel := zap.NewAtomicLevelAt(level)
 
-	core, err := newCore(config, atomicLevel)
+	creator := getCoreCreator(config.Type)
+	core, err := creator.Create(config, atomicLevel)
 	if err != nil {
 		return nil, err
 	}
@@ -120,11 +114,10 @@ func NewLogger(config LogConfig) (*Logger, error) {
 	zapLogger := zap.New(core,
 		zap.AddCaller(),
 		zap.AddStacktrace(zapcore.ErrorLevel),
-		zap.Hooks(MetricsHook()),
 	)
 
-	if config.ServiceName != "" {
-		zapLogger = ContextLogger(zapLogger.Sugar(), config.ServiceName, config.Version, config.Environment).Desugar()
+	if config.ServiceName != "" || config.Version != "" || config.Environment != "" {
+		zapLogger = contextLogger(zapLogger.Sugar(), config.ServiceName, config.Version, config.Environment).Desugar()
 	}
 
 	if config.RedirectStdLog {
@@ -134,156 +127,167 @@ func NewLogger(config LogConfig) (*Logger, error) {
 	return &Logger{zapLogger.Sugar()}, nil
 }
 
-// newCore создаёт ядро логгера в зависимости от типа.
-func newCore(config LogConfig, atomicLevel zap.AtomicLevel) (zapcore.Core, error) {
-	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	encoderConfig.TimeKey = "time"
-	encoderConfig.LevelKey = "level"
-	encoderConfig.MessageKey = "msg"
-	encoderConfig.CallerKey = "caller"
-	encoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
-	encoderConfig.StacktraceKey = "stacktrace"
-
-	consoleEncoderConfig := zap.NewDevelopmentEncoderConfig()
-	consoleEncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	consoleEncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	consoleEncoder := zapcore.NewConsoleEncoder(consoleEncoderConfig)
-
-	switch config.LogType {
+// getCoreCreator returns the core creator for the specified log type.
+func getCoreCreator(t LogType) CoreCreator {
+	switch t {
 	case LogTypeConsole:
-		if config.Development {
-			return zapcore.NewCore(consoleEncoder, zapcore.Lock(os.Stdout), zap.DebugLevel), nil
-		}
-		return zapcore.NewCore(consoleEncoder, zapcore.Lock(os.Stdout), atomicLevel), nil
-	case LogTypeFile, LogTypeRotate:
-		fileWriter := zapcore.AddSync(&lumberjack.Logger{
-			Filename:   config.FilePath,
-			MaxSize:    config.MaxSize,
-			MaxBackups: config.MaxBackups,
-			MaxAge:     config.MaxAge,
-			Compress:   true,
-		})
-		return zapcore.NewCore(zapcore.NewJSONEncoder(encoderConfig), fileWriter, atomicLevel), nil
+		return consoleCoreCreator{}
+	case LogTypeFile:
+		return fileCoreCreator{}
+	case LogTypeRotate:
+		return rotateCoreCreator{}
 	case LogTypeMulti:
-		highPriority := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
-			return lvl >= zapcore.ErrorLevel
-		})
-		lowPriority := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
-			return lvl < zapcore.ErrorLevel
-		})
-
-		errorFileWriter := zapcore.AddSync(&lumberjack.Logger{
-			Filename:   config.ErrorFilePath,
-			MaxSize:    config.MaxSize,
-			MaxBackups: config.MaxBackups,
-			MaxAge:     config.MaxAge,
-			Compress:   true,
-		})
-
-		infoFileWriter := zapcore.AddSync(&lumberjack.Logger{
-			Filename:   config.InfoFilePath,
-			MaxSize:    config.MaxSize,
-			MaxBackups: config.MaxBackups,
-			MaxAge:     config.MaxAge,
-			Compress:   true,
-		})
-
-		return zapcore.NewTee(
-			zapcore.NewCore(zapcore.NewJSONEncoder(encoderConfig), errorFileWriter, highPriority),
-			zapcore.NewCore(zapcore.NewJSONEncoder(encoderConfig), infoFileWriter, lowPriority),
-			zapcore.NewCore(consoleEncoder, zapcore.Lock(os.Stdout), atomicLevel),
-		), nil
+		return multiCoreCreator{}
 	default:
-		return nil, fmt.Errorf("unexpected log type: %s", config.LogType)
+		return consoleCoreCreator{} // Default fallback
 	}
 }
 
-// Close закрывает логгер, синхронизируя все выходные потоки.
+// consoleCoreCreator is an implementation for a console logger.
+type consoleCoreCreator struct{}
+
+func (c consoleCoreCreator) Create(config LogConfig, level zap.AtomicLevel) (zapcore.Core, error) {
+	encoderConfig := newConsoleEncoderConfig(config.ColorConfig)
+	encoder := zapcore.NewConsoleEncoder(encoderConfig)
+	if config.Development {
+		return zapcore.NewCore(encoder, zapcore.Lock(os.Stdout), zap.DebugLevel), nil
+	}
+	return zapcore.NewCore(encoder, zapcore.Lock(os.Stdout), level), nil
+}
+
+// fileCoreCreator is an implementation for a file logger.
+type fileCoreCreator struct{}
+
+func (c fileCoreCreator) Create(config LogConfig, level zap.AtomicLevel) (zapcore.Core, error) {
+	opts := config.Options.(RotateOptions)
+	file, err := os.OpenFile(opts.FilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open log file: %w", err)
+	}
+	return zapcore.NewCore(zapcore.NewJSONEncoder(newJSONEncoderConfig()), zapcore.AddSync(file), level), nil
+}
+
+// rotateCoreCreator is an implementation for a rotating file logger.
+type rotateCoreCreator struct{}
+
+func (c rotateCoreCreator) Create(config LogConfig, level zap.AtomicLevel) (zapcore.Core, error) {
+	opts := config.Options.(RotateOptions)
+	writer := newRotateWriter(opts.FilePath, opts.MaxSize, opts.MaxAge, opts.MaxBackups)
+	return zapcore.NewCore(zapcore.NewJSONEncoder(newJSONEncoderConfig()), writer, level), nil
+}
+
+// multiCoreCreator is an implementation for a multi-output logger.
+type multiCoreCreator struct{}
+
+func (c multiCoreCreator) Create(config LogConfig, level zap.AtomicLevel) (zapcore.Core, error) {
+	opts := config.Options.(MultiOptions)
+	highPriority := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
+		return lvl >= zapcore.ErrorLevel
+	})
+	lowPriority := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
+		return lvl < zapcore.ErrorLevel && lvl >= level.Level()
+	})
+
+	errorWriter := newRotateWriter(opts.ErrorFilePath, opts.MaxSize, opts.MaxAge, opts.MaxBackups)
+	infoWriter := newRotateWriter(opts.InfoFilePath, opts.MaxSize, opts.MaxAge, opts.MaxBackups)
+
+	jsonEncoder := zapcore.NewJSONEncoder(newJSONEncoderConfig())
+	consoleEncoder := zapcore.NewConsoleEncoder(newConsoleEncoderConfig(config.ColorConfig))
+
+	return zapcore.NewTee(
+		zapcore.NewCore(jsonEncoder, errorWriter, highPriority),
+		zapcore.NewCore(jsonEncoder, infoWriter, lowPriority),
+		zapcore.NewCore(consoleEncoder, zapcore.Lock(os.Stdout), level),
+	), nil
+}
+
+// newRotateWriter creates a rotating file writer.
+func newRotateWriter(filePath string, maxSize, maxAge, maxBackups int) zapcore.WriteSyncer {
+	if maxSize <= 0 {
+		maxSize = DefaultMaxSize
+	}
+	if maxAge <= 0 {
+		maxAge = DefaultMaxAge
+	}
+	if maxBackups <= 0 {
+		maxBackups = DefaultMaxBackups
+	}
+	return zapcore.AddSync(&lumberjack.Logger{
+		Filename:   filePath,
+		MaxSize:    maxSize,
+		MaxBackups: maxBackups,
+		MaxAge:     maxAge,
+		Compress:   true,
+	})
+}
+
+// newJSONEncoderConfig creates a configuration for the JSON encoder.
+func newJSONEncoderConfig() zapcore.EncoderConfig {
+	return zapcore.EncoderConfig{
+		EncodeTime:    zapcore.ISO8601TimeEncoder,
+		TimeKey:       "time",
+		LevelKey:      "level",
+		MessageKey:    "msg",
+		CallerKey:     "caller",
+		EncodeCaller:  zapcore.ShortCallerEncoder,
+		StacktraceKey: "stacktrace",
+		EncodeLevel:   zapcore.LowercaseLevelEncoder,
+	}
+}
+
+// newConsoleEncoderConfig creates a configuration for the console encoder with color support.
+func newConsoleEncoderConfig(colorConfig *ColorConfig) zapcore.EncoderConfig {
+	// Default settings
+	config := zapcore.EncoderConfig{
+		EncodeTime:    zapcore.ISO8601TimeEncoder,
+		TimeKey:       "time",
+		LevelKey:      "level",
+		MessageKey:    "msg",
+		CallerKey:     "caller",
+		EncodeCaller:  zapcore.ShortCallerEncoder,
+		StacktraceKey: "stacktrace",
+	}
+
+	// If no color configuration is provided or colors are disabled, use standard colors
+	if colorConfig == nil || !colorConfig.EnableColors {
+		config.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		return config
+	}
+
+	// Configure custom colors for log levels
+	defaultColors := map[zapcore.Level]string{
+		zapcore.DebugLevel: "\033[34m", // Blue
+		zapcore.InfoLevel:  "\033[32m", // Green
+		zapcore.WarnLevel:  "\033[33m", // Yellow
+		zapcore.ErrorLevel: "\033[31m", // Red
+		zapcore.FatalLevel: "\033[35m", // Purple
+		zapcore.PanicLevel: "\033[35m", // Purple
+	}
+	// Override colors if specified in the configuration
+	for level, color := range colorConfig.LevelColors {
+		defaultColors[level] = color
+	}
+
+	config.EncodeLevel = func(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+		enc.AppendString(defaultColors[l] + l.CapitalString() + "\033[0m")
+	}
+
+	return config
+}
+
+// Close closes the logger.
 func (l *Logger) Close() error {
-	return l.SugaredLogger.Desugar().Sync()
-}
-
-// ContextLogger добавляет контекстную информацию к логгеру.
-func ContextLogger(logger *zap.SugaredLogger, serviceName, version, environment string) *zap.SugaredLogger {
-	return logger.With(
-		"service", serviceName,
-		"version", version,
-		"env", environment,
-	)
-}
-
-// MetricsHook хук для сбора метрик Prometheus.
-func MetricsHook() func(zapcore.Entry) error {
-	return func(entry zapcore.Entry) error {
-		logCounter.WithLabelValues(entry.Level.String()).Inc()
-		return nil
+	if err := l.SugaredLogger.Desugar().Sync(); err != nil {
+		return fmt.Errorf("failed to sync logger: %w", err)
 	}
+	return nil
 }
 
-// HTTPLogMiddleware middleware для логирования HTTP-запросов.
-func HTTPLogMiddleware(logger LoggerInterface) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			start := time.Now()
-			wrapper := &responseWrapper{ResponseWriter: w, status: http.StatusOK}
-
-			var traceID, spanID string
-			span := trace.SpanFromContext(r.Context())
-			if span.SpanContext().IsValid() {
-				traceID = span.SpanContext().TraceID().String()
-				spanID = span.SpanContext().SpanID().String()
-			}
-			ctxLogger := logger.With("trace_id", traceID, "span_id", spanID)
-
-			next.ServeHTTP(wrapper, r)
-
-			ctxLogger.Infow("HTTP request",
-				"method", r.Method,
-				"path", r.URL.Path,
-				"query", r.URL.RawQuery,
-				"remote_addr", r.RemoteAddr,
-				"status", wrapper.status,
-				"latency", time.Since(start).String(),
-				"content_length", r.ContentLength,
-				"user_agent", r.UserAgent(),
-			)
-		})
+// WithFields adds fields to the logger.
+func (l *Logger) WithFields(fields map[string]interface{}) StructuredLogger {
+	if len(fields) == 0 {
+		return l
 	}
-}
-
-// responseWrapper обёртка для http.ResponseWriter.
-type responseWrapper struct {
-	http.ResponseWriter
-	status int
-	size   int
-}
-
-func (w *responseWrapper) WriteHeader(code int) {
-	w.status = code
-	w.ResponseWriter.WriteHeader(code)
-}
-
-func (w *responseWrapper) Write(b []byte) (int, error) {
-	size, err := w.ResponseWriter.Write(b)
-	w.size += size
-	return size, err
-}
-
-// WithTracing добавляет информацию о трассировке в логи.
-func WithTracing(ctx context.Context, logger *zap.SugaredLogger) *zap.SugaredLogger {
-	span := trace.SpanFromContext(ctx)
-	if !span.SpanContext().IsValid() {
-		return logger
-	}
-	return logger.With(
-		"trace_id", span.SpanContext().TraceID().String(),
-		"span_id", span.SpanContext().SpanID().String(),
-	)
-}
-
-// WithFields добавляет поля к логгеру.
-func (l *Logger) WithFields(fields map[string]interface{}) *Logger {
 	args := make([]interface{}, 0, len(fields)*2)
 	for k, v := range fields {
 		args = append(args, k, v)
@@ -291,15 +295,35 @@ func (l *Logger) WithFields(fields map[string]interface{}) *Logger {
 	return &Logger{l.With(args...)}
 }
 
-// stdlibWriter обёртка для перенаправления стандартного лога в zap.
+// contextLogger adds contextual information to the logger.
+func contextLogger(logger *zap.SugaredLogger, serviceName, version, environment string) *zap.SugaredLogger {
+	fields := make([]interface{}, 0, 6)
+	if serviceName != "" {
+		fields = append(fields, "service", serviceName)
+	}
+	if version != "" {
+		fields = append(fields, "version", version)
+	}
+	if environment != "" {
+		fields = append(fields, "env", environment)
+	}
+	return logger.With(fields...)
+}
+
+// RedirectStdLog redirects the standard Go logger to zap.
+func RedirectStdLog(logger *zap.Logger) {
+	writer := zapcore.AddSync(&stdlibWriter{logger: logger})
+	liblog.SetFlags(0)
+	liblog.SetPrefix("")
+	liblog.SetOutput(writer)
+}
+
+// stdlibWriter is a wrapper for redirecting standard logs.
 type stdlibWriter struct {
 	logger *zap.Logger
-	mu     sync.Mutex
 }
 
 func (w *stdlibWriter) Write(p []byte) (int, error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
 	msg := string(p)
 	if len(msg) > 0 && msg[len(msg)-1] == '\n' {
 		msg = msg[:len(msg)-1]
@@ -308,27 +332,57 @@ func (w *stdlibWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// RedirectStdLog перенаправляет стандартный логгер Go в zap и возвращает функцию для восстановления.
-func RedirectStdLog(logger *zap.Logger) func() {
-	writer := &stdlibWriter{logger: logger}
-	oldFlags := stdlog.Flags()
-	oldPrefix := stdlog.Prefix()
-	oldOutput := stdlog.Writer()
-	stdlog.SetFlags(0)
-	stdlog.SetPrefix("")
-	stdlog.SetOutput(writer)
-	return func() {
-		stdlog.SetFlags(oldFlags)
-		stdlog.SetPrefix(oldPrefix)
-		stdlog.SetOutput(oldOutput)
-	}
+// NewSimpleLogger creates a simple console logger.
+func NewSimpleLogger(level string) (*Logger, error) {
+	return NewLogger(LogConfig{
+		Type:  LogTypeConsole,
+		Level: LogLevel(level),
+		ColorConfig: &ColorConfig{
+			EnableColors: true,
+			LevelColors: map[zapcore.Level]string{
+				zapcore.DebugLevel: "\033[34m", // Blue
+				zapcore.InfoLevel:  "\033[32m", // Green
+				zapcore.WarnLevel:  "\033[33m", // Yellow
+				zapcore.ErrorLevel: "\033[31m", // Red
+				zapcore.FatalLevel: "\033[35m", // Purple
+				zapcore.PanicLevel: "\033[35m", // Purple
+			},
+		},
+	})
 }
 
-// NewSimpleLogger создаёт простой консольный логгер.
-func NewSimpleLogger(level string) (*Logger, error) {
-	cfg := LogConfig{
-		LogType: LogTypeConsole,
-		Level:   level,
-	}
-	return NewLogger(cfg)
+// NewProductionLogger creates a logger for production use.
+func NewProductionLogger(filePath string, level LogLevel) (*Logger, error) {
+	return NewLogger(LogConfig{
+		Type:        LogTypeRotate,
+		Level:       level,
+		Environment: "production",
+		Options: RotateOptions{
+			FilePath:   filePath,
+			MaxSize:    DefaultMaxSize,
+			MaxAge:     DefaultMaxAge,
+			MaxBackups: DefaultMaxBackups,
+		},
+	})
+}
+
+// NewDevelopmentLogger creates a logger for development use.
+func NewDevelopmentLogger() (*Logger, error) {
+	return NewLogger(LogConfig{
+		Type:        LogTypeConsole,
+		Level:       LogLevelDebug,
+		Development: true,
+		Environment: "development",
+		ColorConfig: &ColorConfig{
+			EnableColors: true,
+			LevelColors: map[zapcore.Level]string{
+				zapcore.DebugLevel: "\033[34m", // Blue
+				zapcore.InfoLevel:  "\033[32m", // Green
+				zapcore.WarnLevel:  "\033[33m", // Yellow
+				zapcore.ErrorLevel: "\033[31m", // Red
+				zapcore.FatalLevel: "\033[35m", // Purple
+				zapcore.PanicLevel: "\033[35m", // Purple
+			},
+		},
+	})
 }
