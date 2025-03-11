@@ -1,81 +1,80 @@
 package main
 
 import (
+	"Auth/config"
+	"Auth/internal/entity"
+	"Auth/internal/infrastructure/postgres/connect"
+	"Auth/internal/repository"
+	"Auth/internal/repository/postgres"
+	"Auth/internal/repository/redis"
 	"Auth/pkg/logger"
+	"context"
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
 	"log"
 	"net/http"
 )
 
-// AuthService - сервис аутентификации.
-type AuthService struct {
-	log *logger.Logger
-}
-
-// NewAuthService создает новый AuthService.
-func NewAuthService(log *logger.Logger) *AuthService {
-	return &AuthService{log: log}
-}
-
-// LoginRequest - структура для парсинга JSON-запроса.
-type LoginRequest struct {
-	Name     string `json:"name"`
-	Password string `json:"password"`
-}
-
-// LoginHandler обрабатывает запрос на вход.
-func (s *AuthService) LoginHandler(w http.ResponseWriter, r *http.Request) {
-	var req LoginRequest
-
-	// Декодируем JSON
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		s.log.Errorw("Failed to parse JSON", "error", err)
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		return
-	}
-
-	// Проверка входных данных
-	if req.Name == "" {
-		s.log.Warnw("User not found", "user_name", req.Name)
-		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
-		return
-	}
-
-	if req.Password == "" {
-		s.log.Warnw("Password is nil", "user_name", req.Name)
-		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
-		return
-	}
-
-	s.log.Infow("User logged in", "username", req.Name)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Login successful!"})
-}
-
-// SetupRouter инициализирует маршрутизатор.
-func SetupRouter(authService *AuthService) *chi.Mux {
-	r := chi.NewRouter()
-	r.Post("/login", authService.LoginHandler) // Подключаем обработчик
-	return r
-}
-
 func main() {
-	// Инициализируем логгер.
+	ctx := context.Background()
+
+	// Загружаем конфигурацию
+	cfg, err := config.Load(".env")
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	// Инициализируем логгер
 	logInstance, err := logger.NewSimpleLogger("info")
 	if err != nil {
 		log.Fatal("Failed to initialize logger:", err)
 	}
 	defer logInstance.Close()
 
-	// Создаем сервис аутентификации.
-	authService := NewAuthService(logInstance)
+	// Подключаемся к PostgreSQL используя конфигурацию
+	postgresDB, err := connect.NewPostgresDB(ctx, cfg.Database.DSN)
+	if err != nil {
+		logInstance.Fatalw("Failed to connect to PostgreSQL", "error", err)
+	}
+	defer postgresDB.Close()
 
-	// Создаем маршрутизатор.
-	router := SetupRouter(authService)
+	// Инициализируем Redis используя конфигурацию
+	redisClient := config.NewRedisClient(cfg.Redis)
+	_, err = redisClient.Ping(ctx).Result()
+	if err != nil {
+		logInstance.Fatalw("Failed to connect to Redis", "error", err)
+	}
+	defer redisClient.Close()
 
-	// Запускаем сервер.
+	// Создаем репозитории
+	postgresRepo := postgres.NewPostgresRepository(postgresDB.GetConn())
+	redisRepo := redis.NewRedisRepository(redisClient)
+	mainRepo := repository.NewRepository(postgresRepo, redisRepo, logInstance)
+
+	// Настраиваем маршрутизатор
+	r := chi.NewRouter()
+
+	//Todo заглушка
+	r.Post("/user", func(w http.ResponseWriter, r *http.Request) {
+		user := &entity.User{
+			UserName: "testuser",
+			Email:    "test@example.com",
+			Password: "password123",
+		} //Todo заглушка
+
+		err := mainRepo.CreateUser(r.Context(), user)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(user)
+	})
+
+	// Запускаем сервер
 	logInstance.Infow("Starting server", "port", 8080)
-	http.ListenAndServe(":8080", router)
+	if err := http.ListenAndServe(":8080", r); err != nil {
+		logInstance.Fatalw("Server failed", "error", err)
+	}
 }
