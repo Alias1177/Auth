@@ -5,7 +5,6 @@ import (
 	"Auth/internal/delivery/http/registration"
 	"Auth/internal/delivery/http/registration/auth"
 	"Auth/internal/delivery/http/user"
-	"Auth/internal/entity"
 	"Auth/internal/infrastructure/middleware"
 	"Auth/internal/infrastructure/postgres/connect"
 	"Auth/internal/repository"
@@ -14,18 +13,26 @@ import (
 	"Auth/pkg/jwt"
 	"Auth/pkg/logger"
 	"context"
-	"encoding/json"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	"log"
 	"net/http"
-	"strconv"
 )
 
 func main() {
 	ctx := context.Background()
 
+	// Логгер
+	logInstance, err := logger.NewSimpleLogger("info")
+	if err != nil {
+		log.Fatal("Failed to initialize logger:", err)
+	}
+	defer logInstance.Close()
+
 	r := chi.NewRouter()
+
+	loggerMiddleware := middleware.NewLoggerMiddleware(logInstance)
+	r.Use(loggerMiddleware.Handler)
 
 	// Настройка CORS
 	r.Use(cors.Handler(cors.Options{
@@ -40,13 +47,6 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to load config:", err)
 	}
-
-	// Логгер
-	logInstance, err := logger.NewSimpleLogger("info")
-	if err != nil {
-		log.Fatal("Failed to initialize logger:", err)
-	}
-	defer logInstance.Close()
 
 	// PostgreSQL Connection
 	postgresDB, err := connect.NewPostgresDB(ctx, cfg.Database.DSN)
@@ -63,7 +63,7 @@ func main() {
 	defer redisClient.Close()
 
 	// Repository setup
-	postgresRepo := postgres.NewPostgresRepository(postgresDB.GetConn())
+	postgresRepo := postgres.NewPostgresRepository(postgresDB.GetConn(), redis.NewRedisRepository(redisClient))
 	redisRepo := redis.NewRedisRepository(redisClient)
 	mainRepo := repository.NewRepository(postgresRepo, redisRepo, logInstance)
 
@@ -74,6 +74,8 @@ func main() {
 	authHandler := auth.NewAuthHandler(tokenManager, cfg.JWT, mainRepo)
 	registrationHandler := registration.NewRegistrationHandler(mainRepo, tokenManager, cfg.JWT)
 	userHandler := user.NewUserHandler(mainRepo)
+	userGet := user.NewUserHandler(mainRepo)
+
 	// Авторизация и регистрация
 	r.Post("/login", authHandler.Login)
 	r.Post("/register", registrationHandler.Register)
@@ -83,36 +85,11 @@ func main() {
 		r.Use(middleware.JWTAuthMiddleware(tokenManager))
 
 		r.Put("/{id}", userHandler.UpdateUser)
-
-		r.Get("/me", func(w http.ResponseWriter, r *http.Request) {
-			// Получаем информацию о пользователе из контекста (добавленную middleware)
-			userClaims, ok := r.Context().Value(middleware.CtxUserKey).(*entity.UserClaims)
-			if !ok {
-				http.Error(w, "Ошибка получения информации о пользователе", http.StatusInternalServerError)
-				return
-			}
-
-			// Преобразуем ID из строки в int
-			userID, err := strconv.Atoi(userClaims.UserID)
-			if err != nil {
-				http.Error(w, "Некорректный ID пользователя", http.StatusBadRequest)
-				return
-			}
-
-			// Получаем полную информацию о пользователе
-			user, err := mainRepo.GetUser(r.Context(), userID)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			// Отправляем информацию о пользователе
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(user)
-		})
+		r.Get("/me", userGet.GetUserInfoHandler)
 	})
 
 	// Запуск сервера
+	//TODO graceful shutdown
 	logInstance.Infow("Starting server", "port", 8080)
 	if err := http.ListenAndServe(":8080", r); err != nil {
 		logInstance.Fatalw("Server failed", "error", err)

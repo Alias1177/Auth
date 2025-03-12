@@ -51,3 +51,18 @@ func (r *RedisRepository) SaveUser(ctx context.Context, user *entity.User) error
 	// Сохраняем данные в Redis.
 	return r.client.Set(ctx, key, jsonData, 0).Err()
 }
+
+func (r *RedisRepository) SetUser(ctx context.Context, user *entity.User) error {
+	key := fmt.Sprintf("user:%d", user.ID)
+	value, err := json.Marshal(user)
+	if err != nil {
+		return fmt.Errorf("failed to marshal user: %w", err)
+	}
+
+	err = r.client.Set(ctx, key, value, 0).Err()
+	if err != nil {
+		return fmt.Errorf("failed to set user in redis: %w", err)
+	}
+
+	return nil
+}
