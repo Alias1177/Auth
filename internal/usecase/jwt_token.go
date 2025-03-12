@@ -53,6 +53,7 @@ func (j *JWTTokenManager) validateToken(token string, isAccess bool) (*entity.Us
 	fmt.Println("Получен токен:", token)
 	fmt.Println("Текущее время сервера:", time.Now().Unix())
 
+	//Todo тут временная заглушка связанная с багом жизни токена(потом надо пофиксить)
 	// Для jwt/v5 используем другой подход
 	parsedToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		fmt.Println("Проверяем метод подписи:", token.Method.Alg())
