@@ -8,18 +8,28 @@ import (
 
 // ParseRefreshToken распарсивает и валидирует Refresh JWT токен.
 func (j *JWTTokenManager) ParseRefreshToken(tokenStr string) (entity.UserClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenStr, &entity.UserClaims{}, func(token *jwt.Token) (interface{}, error) {
+	parsedToken, err := jwt.ParseWithClaims(tokenStr, jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(j.secret), nil
 	})
 	if err != nil {
 		return entity.UserClaims{}, err
 	}
 
-	// Проверка валидности токена и его типа
-	claims, ok := token.Claims.(*entity.UserClaims)
-	if !ok || !token.Valid {
+	claims, ok := parsedToken.Claims.(jwt.MapClaims)
+	if !ok || !parsedToken.Valid {
 		return entity.UserClaims{}, errors.New("invalid refresh token")
 	}
 
-	return *claims, nil
+	// Парсим user_id (sub) и email
+	userID, ok := claims["sub"].(string)
+	if !ok {
+		return entity.UserClaims{}, errors.New("user_id missing")
+	}
+
+	email, _ := claims["email"].(string) // email может быть пустым, поэтому не проверяем ok
+
+	return entity.UserClaims{
+		UserID: userID,
+		Email:  email,
+	}, nil
 }

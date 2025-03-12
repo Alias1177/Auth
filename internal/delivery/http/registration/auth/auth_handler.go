@@ -61,13 +61,13 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 🔐 Проверка пароля тут:
+	// 🔐 Проверка пароля
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
 		http.Error(w, "Пароль неверный", http.StatusUnauthorized)
 		return
 	}
 
-	// Логика генерации токенов и установки cookie ниже:
+	// Генерация JWT-токенов
 	claims := entity.UserClaims{
 		UserID: strconv.Itoa(user.ID),
 		Email:  user.Email,
@@ -85,13 +85,23 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Установка токенов в куки
 	h.setTokenCookie(w, "access-token", accessToken, h.jwtConfig.AccessTokenTTL)
 	h.setTokenCookie(w, "refresh-token", refreshToken, h.jwtConfig.RefreshTokenTTL)
 
+	// 👇 Возвращаем токены в JSON-ответе
+	response := map[string]string{
+		"message":       "Вы успешно вошли в систему",
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Вы успешно вошли в систему",
-	})
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Ошибка формирования JSON ответа", http.StatusInternalServerError)
+	}
 }
 
 func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {

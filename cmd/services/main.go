@@ -17,6 +17,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"log"
 	"net/http"
+	"strconv"
 )
 
 func main() {
@@ -71,23 +72,33 @@ func main() {
 	r.Route("/user", func(r chi.Router) {
 		r.Use(middleware.JWTAuthMiddleware(tokenManager))
 
-		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
-			var user entity.User
-			if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-				http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		r.Get("/me", func(w http.ResponseWriter, r *http.Request) {
+			// Получаем информацию о пользователе из контекста (добавленную middleware)
+			userClaims, ok := r.Context().Value(middleware.CtxUserKey).(*entity.UserClaims)
+			if !ok {
+				http.Error(w, "Ошибка получения информации о пользователе", http.StatusInternalServerError)
 				return
 			}
 
-			if err := mainRepo.CreateUser(r.Context(), &user); err != nil {
+			// Преобразуем ID из строки в int
+			userID, err := strconv.Atoi(userClaims.UserID)
+			if err != nil {
+				http.Error(w, "Некорректный ID пользователя", http.StatusBadRequest)
+				return
+			}
+
+			// Получаем полную информацию о пользователе
+			user, err := mainRepo.GetUser(r.Context(), userID)
+			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 
+			// Отправляем информацию о пользователе
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(user)
 		})
 	})
-
 	// Запуск сервера
 	logInstance.Infow("Starting server", "port", 8080)
 	if err := http.ListenAndServe(":8080", r); err != nil {
