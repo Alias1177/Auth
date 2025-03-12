@@ -3,6 +3,8 @@ package postgres
 import (
 	"Auth/internal/entity"
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -30,13 +32,20 @@ func (r *PostgresRepository) GetUserByID(ctx context.Context, id int) (*entity.U
 }
 
 // GetUserByEmail получает пользователя из базы данных по email.
-func (r *PostgresRepository) GetUserByEmail(ctx context.Context, email string) (*entity.User, error) {
-	var user entity.User
-	query := `SELECT id, username, email, password FROM UsersLog WHERE email = $1`
-	err := r.db.GetContext(ctx, &user, query, email)
+func (repo *PostgresRepository) GetUserByEmail(ctx context.Context, email string) (*entity.User, error) {
+	query := "SELECT id, username, email, password FROM UsersLog WHERE email = $1"
+	user := entity.User{}
+
+	err := repo.db.QueryRowContext(ctx, query, email).
+		Scan(&user.ID, &user.UserName, &user.Email, &user.Password)
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user by email: %w", err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, sql.ErrNoRows
+		}
+		return nil, err // другая ошибка (например, ошибка соединения или запроса)
 	}
+
 	return &user, nil
 }
 
