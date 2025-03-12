@@ -4,6 +4,7 @@ import (
 	"Auth/config"
 	"Auth/internal/delivery/http/registration"
 	"Auth/internal/delivery/http/registration/auth"
+	"Auth/internal/delivery/http/user"
 	"Auth/internal/entity"
 	"Auth/internal/infrastructure/middleware"
 	"Auth/internal/infrastructure/postgres/connect"
@@ -72,7 +73,7 @@ func main() {
 	// Handlers initialization
 	authHandler := auth.NewAuthHandler(tokenManager, cfg.JWT, mainRepo)
 	registrationHandler := registration.NewRegistrationHandler(mainRepo, tokenManager, cfg.JWT)
-
+	userHandler := user.NewUserHandler(mainRepo)
 	// Авторизация и регистрация
 	r.Post("/login", authHandler.Login)
 	r.Post("/register", registrationHandler.Register)
@@ -80,6 +81,8 @@ func main() {
 	// Защищённые роуты (JWT middleware)
 	r.Route("/user", func(r chi.Router) {
 		r.Use(middleware.JWTAuthMiddleware(tokenManager))
+
+		r.Put("/{id}", userHandler.UpdateUser)
 
 		r.Get("/me", func(w http.ResponseWriter, r *http.Request) {
 			// Получаем информацию о пользователе из контекста (добавленную middleware)
