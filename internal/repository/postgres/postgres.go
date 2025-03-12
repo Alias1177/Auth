@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"Auth/internal/entity"
+	"Auth/internal/repository/redis"
 	"context"
 	"database/sql"
 	"errors"
@@ -12,12 +13,15 @@ import (
 
 // PostgresRepository предоставляет методы для работы с PostgreSQL.
 type PostgresRepository struct {
-	db *sqlx.DB
+	db        *sqlx.DB
+	redisRepo *redis.RedisRepository // Добавляем Redis репозиторий
 }
 
-// NewPostgresRepository создает новый экземпляр PostgresRepository.
-func NewPostgresRepository(db *sqlx.DB) *PostgresRepository {
-	return &PostgresRepository{db: db}
+func NewPostgresRepository(db *sqlx.DB, redisRepo *redis.RedisRepository) *PostgresRepository {
+	return &PostgresRepository{
+		db:        db,
+		redisRepo: redisRepo,
+	}
 }
 
 // GetUserByID получает пользователя из базы данных по ID.
@@ -74,5 +78,11 @@ func (r *PostgresRepository) UpdateUser(ctx context.Context, user *entity.User) 
 	if rowsAffected == 0 {
 		return fmt.Errorf("user not found")
 	}
+
+	err = r.redisRepo.SetUser(ctx, user)
+	if err != nil {
+		return fmt.Errorf("failed to update user in redis: %w", err)
+	}
+
 	return nil
 }
