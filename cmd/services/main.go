@@ -72,6 +72,7 @@ func main() {
 		json.NewEncoder(w).Encode(user)
 	})
 
+	//TODO сделать graceful shutdown
 	// Запускаем сервер
 	logInstance.Infow("Starting server", "port", 8080)
 	if err := http.ListenAndServe(":8080", r); err != nil {
