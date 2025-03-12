@@ -7,11 +7,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"strconv"
-	"time"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 type RegistrationHandler struct {
@@ -28,7 +26,7 @@ func NewRegistrationHandler(repo usecase.UserRepository, manager usecase.TokenMa
 	}
 }
 
-func (h *RegistrationHandler) setTokenCookie(w http.ResponseWriter, cookieName, token string, tokenTTL time.Duration) {
+func (h *RegistrationHandler) setTokenCookie(w http.ResponseWriter, cookieName, token string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     cookieName,
 		Value:    token,
@@ -36,7 +34,6 @@ func (h *RegistrationHandler) setTokenCookie(w http.ResponseWriter, cookieName, 
 		Secure:   true,
 		Path:     "/",
 		SameSite: http.SameSiteStrictMode,
-		Expires:  time.Now().Add(tokenTTL),
 	})
 }
 
@@ -91,14 +88,7 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	refreshToken, err := h.tokenManager.GenerateRefreshToken(claims)
-	if err != nil {
-		http.Error(w, "Ошибка генерации refresh token", http.StatusInternalServerError)
-		return
-	}
-
-	h.setTokenCookie(w, "access-token", accessToken, h.jwtConfig.AccessTokenTTL)
-	h.setTokenCookie(w, "refresh-token", refreshToken, h.jwtConfig.RefreshTokenTTL)
+	h.setTokenCookie(w, "access-token", accessToken)
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{
