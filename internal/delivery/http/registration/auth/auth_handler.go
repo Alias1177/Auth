@@ -10,7 +10,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"strconv"
-	"time"
 )
 
 type AuthHandler struct {
@@ -28,7 +27,7 @@ func NewAuthHandler(manager usecase.TokenManager, cfg config.JWTConfig, repo use
 }
 
 // setTokenCookie устанавливает JWT токен в куки с необходимыми параметрами безопасности
-func (h *AuthHandler) setTokenCookie(w http.ResponseWriter, cookieName, token string, tokenTTL time.Duration) {
+func (h *AuthHandler) setTokenCookie(w http.ResponseWriter, cookieName, token string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     cookieName,
 		Value:    token,
@@ -36,7 +35,6 @@ func (h *AuthHandler) setTokenCookie(w http.ResponseWriter, cookieName, token st
 		Secure:   true,
 		Path:     "/",
 		SameSite: http.SameSiteStrictMode,
-		Expires:  time.Now().Add(tokenTTL),
 	})
 }
 
@@ -79,21 +77,13 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	refreshToken, err := h.tokenManager.GenerateRefreshToken(claims)
-	if err != nil {
-		http.Error(w, "Не удалось создать refresh token", http.StatusInternalServerError)
-		return
-	}
-
 	// Установка токенов в куки
-	h.setTokenCookie(w, "access-token", accessToken, h.jwtConfig.AccessTokenTTL)
-	h.setTokenCookie(w, "refresh-token", refreshToken, h.jwtConfig.RefreshTokenTTL)
+	h.setTokenCookie(w, "access-token", accessToken)
 
 	// 👇 Возвращаем токены в JSON-ответе
 	response := map[string]string{
-		"message":       "Вы успешно вошли в систему",
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
+		"message":      "Вы успешно вошли в систему",
+		"access_token": accessToken,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -102,49 +92,4 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, "Ошибка формирования JSON ответа", http.StatusInternalServerError)
 	}
-}
-
-func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie("refresh-token")
-	if err != nil {
-		http.Error(w, "Refresh токен не найден", http.StatusUnauthorized)
-		return
-	}
-
-	refreshToken := cookie.Value
-
-	claims, err := h.tokenManager.ParseRefreshToken(refreshToken)
-	if err != nil {
-		http.Error(w, "Неверный refresh токен", http.StatusUnauthorized)
-		return
-	}
-
-	// Генерация новых токенов
-	newClaims := entity.UserClaims{
-		UserID: claims.UserID,
-		Email:  claims.Email,
-	}
-
-	newAccessToken, err := h.tokenManager.GenerateAccessToken(newClaims)
-	if err != nil {
-		http.Error(w, "Не удалось создать access token", http.StatusInternalServerError)
-		return
-	}
-
-	newRefreshToken, err := h.tokenManager.GenerateRefreshToken(newClaims)
-	if err != nil {
-		http.Error(w, "Не удалось создать refresh token", http.StatusInternalServerError)
-		return
-	}
-
-	// Установка новых токенов в Cookie
-	h.setTokenCookie(w, "access-token", newAccessToken, h.jwtConfig.AccessTokenTTL)
-	h.setTokenCookie(w, "refresh-token", newRefreshToken, h.jwtConfig.RefreshTokenTTL)
-
-	response := map[string]string{
-		"message": "Токены успешно обновлены",
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
 }

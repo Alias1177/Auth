@@ -65,7 +65,6 @@ func main() {
 
 	// Авторизация и регистрация
 	r.Post("/login", authHandler.Login)
-	r.Post("/refresh-token", authHandler.RefreshToken)
 	r.Post("/register", registrationHandler.Register)
 
 	// Защищённые роуты (JWT middleware)

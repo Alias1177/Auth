@@ -4,7 +4,6 @@ import (
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/redis/go-redis/v9"
 	"log"
-	"time"
 )
 
 // RedisConfig конфигурация для Redis
@@ -14,9 +13,7 @@ type RedisConfig struct {
 	DB       int    `env:"REDIS_DB" env-default:"0"`
 }
 type JWTConfig struct {
-	Secret          string        `env:"JWT_SECRET"`
-	AccessTokenTTL  time.Duration `env:"ACCESS_TOKEN_TTL"`
-	RefreshTokenTTL time.Duration `env:"REFRESH_TOKEN_TTL"`
+	Secret string `env:"JWT_SECRET"`
 }
 
 // DatabaseConfig конфигурация для PostgreSQL
