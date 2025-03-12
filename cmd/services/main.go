@@ -10,7 +10,7 @@ import (
 	"Auth/internal/repository"
 	"Auth/internal/repository/postgres"
 	"Auth/internal/repository/redis"
-	"Auth/internal/usecase"
+	"Auth/pkg/jwt"
 	"Auth/pkg/logger"
 	"context"
 	"encoding/json"
@@ -55,7 +55,7 @@ func main() {
 	mainRepo := repository.NewRepository(postgresRepo, redisRepo, logInstance)
 
 	// JWT Token Manager
-	tokenManager := usecase.NewJWTTokenManager(cfg.JWT)
+	tokenManager := jwt.NewJWTTokenManager(cfg.JWT)
 
 	// Handlers initialization
 	authHandler := auth.NewAuthHandler(tokenManager, cfg.JWT, mainRepo)
