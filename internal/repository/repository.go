@@ -69,3 +69,18 @@ func (r *Repository) CreateUser(ctx context.Context, user *entity.User) error {
 
 	return nil
 }
+
+// GetUserByID получение пользователя по ID (прямая прокси без изменения логики)
+func (r *Repository) GetUserByID(ctx context.Context, id int) (*entity.User, error) {
+	return r.postgres.GetUserByID(ctx, id)
+}
+
+// GetUserByEmail получение пользователя по Email (прямая прокси без изменения логики)
+func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*entity.User, error) {
+	return r.postgres.GetUserByEmail(ctx, email)
+}
+
+// UpdateUser обновление данных пользователя (прямая прокси без изменения логики)
+func (r *Repository) UpdateUser(ctx context.Context, user *entity.User) error {
+	return r.postgres.UpdateUser(ctx, user)
+}
