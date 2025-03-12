@@ -15,6 +15,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/cors"
 	"log"
 	"net/http"
 	"strconv"
@@ -22,6 +23,17 @@ import (
 
 func main() {
 	ctx := context.Background()
+
+	r := chi.NewRouter()
+
+	// Настройка CORS
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:3000"}, // TODO Укажите точный домен вашего фронтенда
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"}, // Добавлен заголовок Authorization
+		AllowCredentials: true,                                      // Разрешаем отправку куки
+		MaxAge:           300,                                       // Максимальное время кэширования CORS заголовков в браузере
+	}))
 
 	cfg, err := config.Load(".env")
 	if err != nil {
@@ -61,8 +73,6 @@ func main() {
 	authHandler := auth.NewAuthHandler(tokenManager, cfg.JWT, mainRepo)
 	registrationHandler := registration.NewRegistrationHandler(mainRepo, tokenManager, cfg.JWT)
 
-	r := chi.NewRouter()
-
 	// Авторизация и регистрация
 	r.Post("/login", authHandler.Login)
 	r.Post("/register", registrationHandler.Register)
@@ -98,6 +108,7 @@ func main() {
 			json.NewEncoder(w).Encode(user)
 		})
 	})
+
 	// Запуск сервера
 	logInstance.Infow("Starting server", "port", 8080)
 	if err := http.ListenAndServe(":8080", r); err != nil {
