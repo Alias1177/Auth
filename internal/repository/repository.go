@@ -3,9 +3,7 @@ package repository
 
 import (
 	"Auth/internal/entity"
-	"Auth/internal/repository/postgres"
-	"Auth/internal/repository/redis"
-	"Auth/pkg/logger"
+	"Auth/internal/usecase"
 	"context"
 	"fmt"
 	"log/slog"
@@ -13,16 +11,15 @@ import (
 
 // Repository представляет собой агрегатор репозиториев PostgreSQL и Redis.
 type Repository struct {
-	postgres *postgres.PostgresRepository // Репозиторий для работы с PostgreSQL.
-	redis    *redis.RedisRepository
-	log      *logger.Logger
+	postgres usecase.UserRepository
+	redis    usecase.UserCache
+	log      usecase.Logger
 }
 
-// NewRepository создает новый экземпляр агрегированного репозитория.
-func NewRepository(pg *postgres.PostgresRepository, rd *redis.RedisRepository, log *logger.Logger) *Repository {
+func NewRepository(pg usecase.UserRepository, redis usecase.UserCache, log usecase.Logger) *Repository {
 	return &Repository{
 		postgres: pg,
-		redis:    rd,
+		redis:    redis,
 		log:      log,
 	}
 }

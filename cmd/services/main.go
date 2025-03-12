@@ -57,9 +57,9 @@ func main() {
 	//Todo заглушка
 	r.Post("/user", func(w http.ResponseWriter, r *http.Request) {
 		user := &entity.User{
-			UserName: "testuser",
-			Email:    "test@example.com",
-			Password: "password123",
+			UserName: "testuser1",
+			Email:    "test@exampl1e.com",
+			Password: "passwor1d123",
 		} //Todo заглушка
 
 		err := mainRepo.CreateUser(r.Context(), user)

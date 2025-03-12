@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"Auth/internal/usecase"
 	"fmt"
 	"os"
 
@@ -16,20 +17,9 @@ type ColorConfig struct {
 	LevelColors  map[zapcore.Level]string // Mapping of log levels to colors (ANSI codes)
 }
 
-// StructuredLogger is an interface for structured logging.
-type StructuredLogger interface {
-	Debugw(msg string, keysAndValues ...interface{})
-	Infow(msg string, keysAndValues ...interface{})
-	Warnw(msg string, keysAndValues ...interface{})
-	Errorw(msg string, keysAndValues ...interface{})
-	Fatalw(msg string, keysAndValues ...interface{})
-	Panicw(msg string, keysAndValues ...interface{})
-	Close() error
-}
-
 // ContextAwareLogger is an interface for adding context to the logger.
 type ContextAwareLogger interface {
-	WithFields(fields map[string]interface{}) StructuredLogger
+	WithFields(fields map[string]interface{}) usecase.Logger
 }
 
 // Logger is a wrapper around zap.SugaredLogger.
@@ -284,7 +274,7 @@ func (l *Logger) Close() error {
 }
 
 // WithFields adds fields to the logger.
-func (l *Logger) WithFields(fields map[string]interface{}) StructuredLogger {
+func (l *Logger) WithFields(fields map[string]interface{}) usecase.Logger {
 	if len(fields) == 0 {
 		return l
 	}
