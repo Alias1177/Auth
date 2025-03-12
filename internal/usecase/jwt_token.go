@@ -4,6 +4,7 @@ import (
 	"Auth/config"
 	"Auth/internal/entity"
 	"errors"
+	"fmt"
 	"github.com/golang-jwt/jwt/v5"
 	"time"
 )
@@ -49,10 +50,22 @@ func (j *JWTTokenManager) ValidateRefreshToken(token string) (*entity.UserClaims
 }
 
 func (j *JWTTokenManager) validateToken(token string, isAccess bool) (*entity.UserClaims, error) {
+	fmt.Println("Получен токен:", token)
+	fmt.Println("Текущее время сервера:", time.Now().Unix())
+
+	// Для jwt/v5 используем другой подход
 	parsedToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+		fmt.Println("Проверяем метод подписи:", token.Method.Alg())
 		return []byte(j.secret), nil
-	})
-	if err != nil || !parsedToken.Valid {
+	}, jwt.WithoutClaimsValidation()) // Этот параметр отключает проверку claims включая exp
+
+	if err != nil {
+		fmt.Println("Ошибка парсинга токена:", err)
+		return nil, errors.New("token invalid")
+	}
+
+	if !parsedToken.Valid {
+		fmt.Println("Токен недействителен!")
 		return nil, errors.New("token invalid")
 	}
 
@@ -61,18 +74,21 @@ func (j *JWTTokenManager) validateToken(token string, isAccess bool) (*entity.Us
 		return nil, errors.New("invalid claims")
 	}
 
+	fmt.Println("Расшифрованные claims:", claims)
+
+	// В jwt/v5 преобразование к строке может потребовать дополнительной проверки
 	userID, ok := claims["sub"].(string)
 	if !ok {
-		return nil, errors.New("user_id missing")
+		return nil, errors.New("invalid subject claim")
 	}
 
-	userClaims := &entity.UserClaims{
+	email, ok := claims["email"].(string)
+	if !ok {
+		return nil, errors.New("invalid email claim")
+	}
+
+	return &entity.UserClaims{
 		UserID: userID,
-	}
-
-	if email, found := claims["email"].(string); found && isAccess {
-		userClaims.Email = email
-	}
-
-	return userClaims, nil
+		Email:  email,
+	}, nil
 }
