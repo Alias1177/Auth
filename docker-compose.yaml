@@ -1,4 +1,3 @@
-
 services:
   postgres:
     image: postgres:latest
@@ -9,14 +8,27 @@ services:
       POSTGRES_PASSWORD: secret
       POSTGRES_DB: mydb
     ports:
-      - "5432:5432"
+      - "5435:5432"
     volumes:
-      - pg_data:/var/lib/postgresql/data
+     - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "admin"]
       interval: 10s
       retries: 5
       start_period: 5s
+
+  flyway:
+    image: flyway/flyway:latest
+    container_name: flyway
+    depends_on:
+      - postgres
+    command: ["migrate"]
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/mydb
+      FLYWAY_USER: admin
+      FLYWAY_PASSWORD: secret
+    volumes:
+      - ./flyway/sql:/flyway/sql  # Папка с миграциями
 
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
@@ -87,9 +99,8 @@ services:
       - prometheus
 
 volumes:
-  pg_data:
+  postgres_data:
   kafka_data:
   redis_data:
   mongo_data:
   grafana_data:
-
