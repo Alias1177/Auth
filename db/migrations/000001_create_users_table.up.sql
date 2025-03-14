@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS userslog (
                                         id SERIAL PRIMARY KEY,
-                                        username TEXT NOT NULL,
-                                        email TEXT UNIQUE NOT NULL CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
-    password TEXT NOT NULL,
+                                        username VARCHAR(255) NOT NULL,
+                                        email VARCHAR(255) UNIQUE NOT NULL CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
+    password VARCHAR(255) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                              );

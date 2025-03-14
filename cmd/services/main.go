@@ -83,16 +83,17 @@ func main() {
 	defer redisClient.Close()
 
 	// Создание репозиториев
-	postgresRepo := postgres.NewPostgresRepository(postgresDB.GetConn(), redis.NewRedisRepository(redisClient))
-	redisRepo := redis.NewRedisRepository(redisClient)
+	postgresRepo := postgres.NewPostgresRepository(postgresDB.GetConn(), redis.NewRedisRepository(redisClient, logInstance), logInstance)
+	redisRepo := redis.NewRedisRepository(redisClient, logInstance)
 	mainRepo := repository.NewRepository(postgresRepo, redisRepo, logInstance)
 
 	// JWT Token Manager
 	tokenManager := jwt.NewJWTTokenManager(cfg.JWT)
 
 	// Инициализация хэндлеров
-	authHandler := auth.NewAuthHandler(tokenManager, cfg.JWT, mainRepo)
-	registrationHandler := registration.NewRegistrationHandler(mainRepo, tokenManager, cfg.JWT)
+	authHandler := auth.NewAuthHandler(tokenManager, cfg.JWT, mainRepo, logInstance)
+	registrationHandler := registration.NewRegistrationHandler(mainRepo, tokenManager, cfg.JWT, logInstance)
+
 	userHandler := user.NewUserHandler(mainRepo)
 	userGet := user.NewUserHandler(mainRepo)
 
