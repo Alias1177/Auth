@@ -59,6 +59,7 @@ func (r *RedisRepository) SaveUser(ctx context.Context, user *entity.User) error
 	return r.client.Set(ctx, key, jsonData, 0).Err()
 }
 
+// SetUser сохраняет данные пользователя в Redis (альтернативный метод).
 func (r *RedisRepository) SetUser(ctx context.Context, user *entity.User) error {
 	key := fmt.Sprintf("user:%d", user.ID)
 	value, err := json.Marshal(user)
@@ -73,5 +74,21 @@ func (r *RedisRepository) SetUser(ctx context.Context, user *entity.User) error 
 		return fmt.Errorf("failed to set user in redis: %w", err)
 	}
 
+	return nil
+}
+
+// Close закрывает соединение с Redis.
+func (r *RedisRepository) Close() error {
+	if r.client == nil {
+		return nil
+	}
+
+	err := r.client.Close()
+	if err != nil {
+		r.log.Errorw("Failed to close Redis connection", "err", err)
+		return fmt.Errorf("failed to close Redis client: %w", err)
+	}
+
+	r.log.Infow("Redis connection closed successfully")
 	return nil
 }

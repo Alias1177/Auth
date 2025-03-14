@@ -70,23 +70,15 @@ func (r *PostgresRepository) CreateUser(ctx context.Context, user *entity.User) 
 // UpdateUser обновляет данные существующего пользователя в базе данных.
 func (r *PostgresRepository) UpdateUser(ctx context.Context, user *entity.User) error {
 	query := `UPDATE UsersLog 
-             SET username = $1, email = $2, password = $3 
-             WHERE id = $4`
-	result, err := r.db.ExecContext(ctx, query, user.UserName, user.Email, user.Password, user.ID)
+              SET username = $1, email = $2, password = $3, updated_at = NOW()
+              WHERE id = $4
+              RETURNING updated_at`
+	err := r.db.QueryRowxContext(ctx, query, user.UserName, user.Email, user.Password, user.ID).Scan(&user.UpdatedAt)
 	if err != nil {
 		r.log.Errorw("Update err", "err", err)
 		return fmt.Errorf("failed to update user: %w", err)
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		r.log.Errorw("failed to get rows", "err", err)
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-	if rowsAffected == 0 {
-		r.log.Errorw("no rows updated", "id", user.ID)
-		return fmt.Errorf("user not found")
-	}
 
 	err = r.redisRepo.SetUser(ctx, user)
 	if err != nil {
