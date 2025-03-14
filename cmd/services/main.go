@@ -12,7 +12,9 @@ import (
 	"Auth/internal/repository/redis"
 	"Auth/pkg/jwt"
 	"Auth/pkg/logger"
+	"Auth/pkg/migration"
 	"context"
+	"errors"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	"log"
@@ -38,58 +40,75 @@ func main() {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:3000"}, // TODO Укажите точный домен вашего фронтенда
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Content-Type", "Authorization"}, // Добавлен заголовок Authorization
-		AllowCredentials: true,                                      // Разрешаем отправку куки
-		MaxAge:           300,                                       // Максимальное время кэширования CORS заголовков в браузере
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
+		MaxAge:           300,
 	}))
 
+	// Загрузка конфига
 	cfg, err := config.Load(".env")
 	if err != nil {
 		log.Fatal("Failed to load config:", err)
 	}
 
-	// PostgreSQL Connection
+	// Подключение к PostgreSQL
 	postgresDB, err := connect.NewPostgresDB(ctx, cfg.Database.DSN)
 	if err != nil {
 		logInstance.Fatalw("Failed to connect PostgreSQL", "error", err)
 	}
 	defer postgresDB.Close()
 
-	// Redis Connection
+	// Запуск миграций
+	migrator, err := migration.NewMigrator(postgresDB.GetConn(), "db/migrations", logInstance)
+	if err != nil {
+		logInstance.Fatalw("Failed to create migrator", "error", err)
+	}
+	defer migrator.Close()
+
+	if err := migrator.Up(); err != nil {
+		if errors.Is(err, migration.ErrNoChange) {
+			logInstance.Infow("No new migrations, skipping")
+		} else {
+			logInstance.Fatalw("Failed to run migrations", "error", err)
+		}
+	} else {
+		logInstance.Infow("Database migrations completed successfully")
+	}
+
+	// Подключение к Redis
 	redisClient := config.NewRedisClient(cfg.Redis)
 	if _, err := redisClient.Ping(ctx).Result(); err != nil {
 		logInstance.Fatalw("Failed to connect Redis", "error", err)
 	}
 	defer redisClient.Close()
 
-	// Repository setup
-	postgresRepo := postgres.NewPostgresRepository(postgresDB.GetConn(), redis.NewRedisRepository(redisClient))
-	redisRepo := redis.NewRedisRepository(redisClient)
+	// Создание репозиториев
+	postgresRepo := postgres.NewPostgresRepository(postgresDB.GetConn(), redis.NewRedisRepository(redisClient, logInstance), logInstance)
+	redisRepo := redis.NewRedisRepository(redisClient, logInstance)
 	mainRepo := repository.NewRepository(postgresRepo, redisRepo, logInstance)
 
 	// JWT Token Manager
 	tokenManager := jwt.NewJWTTokenManager(cfg.JWT)
 
-	// Handlers initialization
-	authHandler := auth.NewAuthHandler(tokenManager, cfg.JWT, mainRepo)
-	registrationHandler := registration.NewRegistrationHandler(mainRepo, tokenManager, cfg.JWT)
-	userHandler := user.NewUserHandler(mainRepo)
-	userGet := user.NewUserHandler(mainRepo)
+	// Инициализация хэндлеров
+	authHandler := auth.NewAuthHandler(tokenManager, cfg.JWT, mainRepo, logInstance)
+	registrationHandler := registration.NewRegistrationHandler(mainRepo, tokenManager, cfg.JWT, logInstance)
 
-	// Авторизация и регистрация
+	userHandler := user.NewUserHandler(mainRepo, logInstance)
+	userGet := user.NewUserHandler(mainRepo, logInstance)
+
+	// Маршруты
 	r.Post("/login", authHandler.Login)
 	r.Post("/register", registrationHandler.Register)
 
-	// Защищённые роуты (JWT middleware)
+	// Защищённые маршруты
 	r.Route("/user", func(r chi.Router) {
 		r.Use(middleware.JWTAuthMiddleware(tokenManager))
-
 		r.Put("/{id}", userHandler.UpdateUser)
 		r.Get("/me", userGet.GetUserInfoHandler)
 	})
 
 	// Запуск сервера
-	//TODO graceful shutdown
 	logInstance.Infow("Starting server", "port", 8080)
 	if err := http.ListenAndServe(":8080", r); err != nil {
 		logInstance.Fatalw("Server failed", "error", err)

@@ -4,6 +4,7 @@ import (
 	"Auth/config"
 	"Auth/internal/entity"
 	"Auth/internal/usecase"
+	"Auth/pkg/logger"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -16,13 +17,15 @@ type AuthHandler struct {
 	tokenManager   usecase.TokenManager
 	jwtConfig      config.JWTConfig
 	userRepository usecase.UserRepository
+	logger         logger.Logger
 }
 
-func NewAuthHandler(manager usecase.TokenManager, cfg config.JWTConfig, repo usecase.UserRepository) *AuthHandler {
+func NewAuthHandler(manager usecase.TokenManager, cfg config.JWTConfig, repo usecase.UserRepository, log *logger.Logger) *AuthHandler {
 	return &AuthHandler{
 		tokenManager:   manager,
 		jwtConfig:      cfg,
 		userRepository: repo,
+		logger:         *log,
 	}
 }
 
@@ -45,6 +48,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.Errorw("error while decoding login request", "error", err)
 		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
 		return
 	}
@@ -52,15 +56,18 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	user, err := h.userRepository.GetUserByEmail(r.Context(), req.Email)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			h.logger.Errorw("Can not find user by email", "error", err)
 			http.Error(w, "Пользователь не найден", http.StatusUnauthorized)
 			return
 		}
+		h.logger.Errorw("error while getting user by email", "error", err)
 		http.Error(w, "Ошибка запроса пользователя", http.StatusInternalServerError)
 		return
 	}
 
 	// 🔐 Проверка пароля
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+		h.logger.Errorw("password does not match with hash. password:", req.Password, "hash:", user.Password, "error", err)
 		http.Error(w, "Пароль неверный", http.StatusUnauthorized)
 		return
 	}
@@ -73,6 +80,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	accessToken, err := h.tokenManager.GenerateAccessToken(claims)
 	if err != nil {
+		h.logger.Errorw("error while generating access token", "error", err)
 		http.Error(w, "Не удалось создать access token", http.StatusInternalServerError)
 		return
 	}
@@ -90,6 +98,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
+		h.logger.Errorw("error while encoding response", "error", err)
 		http.Error(w, "Ошибка формирования JSON ответа", http.StatusInternalServerError)
 	}
 }
