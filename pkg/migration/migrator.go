@@ -28,7 +28,8 @@ func NewMigrator(db *sqlx.DB, s string, log *logger.Logger) (*Migrator, error) {
 	}
 
 	m, err := migrate.NewWithDatabaseInstance(
-		fmt.Sprintf("file://%s", "db/migrations"),
+
+		fmt.Sprintf("file://%s", s),
 		"postgres",
 		driver,
 	)

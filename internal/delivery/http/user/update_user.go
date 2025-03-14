@@ -3,6 +3,7 @@ package user
 import (
 	"Auth/internal/entity"
 	"Auth/internal/usecase"
+	"Auth/pkg/logger"
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -13,20 +14,25 @@ import (
 // UserHandler управляет запросами, связанными с пользователями.
 type UserHandler struct {
 	userRepository usecase.UserRepository
+	logger         *logger.Logger // Изменили на *logger.Logger для консистентности
 }
 
-func NewUserHandler(userRepo usecase.UserRepository) *UserHandler {
+func NewUserHandler(userRepo usecase.UserRepository, log *logger.Logger) *UserHandler {
 	return &UserHandler{
 		userRepository: userRepo,
+		logger:         log,
 	}
 }
 
 // UpdateUser обновляет данные пользователя.
 func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	// Получаем ID пользователя из URL параметра
-	userIDStr := chi.URLParam(r, "id") // Получаем ID пользователя из параметров URL
+	userIDStr := chi.URLParam(r, "id")
 	userID, err := strconv.Atoi(userIDStr)
 	if err != nil {
+		if h.logger != nil {
+			h.logger.Errorw("userHandler", "user_id", userIDStr, "err", err)
+		}
 		http.Error(w, "Некорректный ID пользователя", http.StatusBadRequest)
 		return
 	}
@@ -34,6 +40,9 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	// Разбираем тело запроса
 	var user entity.User
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+		if h.logger != nil {
+			h.logger.Errorw("userHandler", "err", err)
+		}
 		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
 		return
 	}
@@ -45,16 +54,21 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	if user.Password != "" {
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 		if err != nil {
+			if h.logger != nil {
+				h.logger.Errorw("userHandler", "err", err)
+			}
 			http.Error(w, "Не удалось хэшировать пароль", http.StatusInternalServerError)
 			return
 		}
-		// Заменяем пароль на хэшированный
 		user.Password = string(hashedPassword)
 	}
 
 	// Обновляем пользователя
 	err = h.userRepository.UpdateUser(r.Context(), &user)
 	if err != nil {
+		if h.logger != nil {
+			h.logger.Errorw("userHandler", "err", err)
+		}
 		http.Error(w, "Не удалось обновить данные пользователя", http.StatusInternalServerError)
 		return
 	}
