@@ -7,7 +7,7 @@ type User struct {
 	ID        int       `db:"id" json:"id"`
 	UserName  string    `db:"username" json:"username,omitempty" validate:"required"`
 	Email     string    `db:"email" json:"email,omitempty" validate:"required,email"`
-	Password  string    `db:"password" json:"-" validate:"required"`
+	Password  string    `db:"password" json:"password" validate:"required"`
 	CreatedAt time.Time `db:"created_at" json:"created_at,omitempty"`
 	UpdatedAt time.Time `db:"updated_at" json:"updated_at,omitempty"`
 }
