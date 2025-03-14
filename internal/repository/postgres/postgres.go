@@ -79,6 +79,7 @@ func (r *PostgresRepository) UpdateUser(ctx context.Context, user *entity.User) 
 		return fmt.Errorf("failed to update user: %w", err)
 	}
 
+
 	err = r.redisRepo.SetUser(ctx, user)
 	if err != nil {
 		r.log.Errorw("redis set err", "err", err)

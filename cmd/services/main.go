@@ -94,8 +94,10 @@ func main() {
 	authHandler := auth.NewAuthHandler(tokenManager, cfg.JWT, mainRepo, logInstance)
 	registrationHandler := registration.NewRegistrationHandler(mainRepo, tokenManager, cfg.JWT, logInstance)
 
+
 	userHandler := user.NewUserHandler(mainRepo, logInstance)
 	userGet := user.NewUserHandler(mainRepo, logInstance)
+
 
 	// Маршруты
 	r.Post("/login", authHandler.Login)
