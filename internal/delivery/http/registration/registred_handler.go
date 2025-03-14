@@ -4,6 +4,7 @@ import (
 	"Auth/config"
 	"Auth/internal/entity"
 	"Auth/internal/usecase"
+	"Auth/pkg/logger"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -16,13 +17,15 @@ type RegistrationHandler struct {
 	userRepository usecase.UserRepository
 	tokenManager   usecase.TokenManager
 	jwtConfig      config.JWTConfig
+	logger         logger.Logger
 }
 
-func NewRegistrationHandler(repo usecase.UserRepository, manager usecase.TokenManager, cfg config.JWTConfig) *RegistrationHandler {
+func NewRegistrationHandler(repo usecase.UserRepository, manager usecase.TokenManager, cfg config.JWTConfig, log *logger.Logger) *RegistrationHandler {
 	return &RegistrationHandler{
 		userRepository: repo,
 		tokenManager:   manager,
 		jwtConfig:      cfg,
+		logger:         *log, // ✅ Теперь логгер будет инициализирован
 	}
 }
 
@@ -45,15 +48,18 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.Errorw("error while decoding body", "error", err)
 		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
 		return
 	}
 
 	_, err := h.userRepository.GetUserByEmail(r.Context(), req.Email)
 	if err == nil {
+		h.logger.Errorw("User already exists", "email", req.Email, "username", req.Username)
 		http.Error(w, "Пользователь с таким email уже существует", http.StatusConflict)
 		return
 	} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		h.logger.Errorw("error while fetching user", "error", err)
 		http.Error(w, "Ошибка проверки пользователя", http.StatusInternalServerError)
 		return
 	}
@@ -61,6 +67,7 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// 🔑 Хешируем пароль перед записью в БД
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
+		h.logger.Errorw("error while hashing password", "error", err)
 		http.Error(w, "Ошибка при обработке пароля", http.StatusInternalServerError)
 		return
 	}
@@ -73,6 +80,7 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.userRepository.CreateUser(r.Context(), &newUser); err != nil {
+		h.logger.Errorw("error while creating user", "error", err)
 		http.Error(w, "Ошибка создания пользователя", http.StatusInternalServerError)
 		return
 	}
@@ -84,6 +92,7 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	accessToken, err := h.tokenManager.GenerateAccessToken(claims)
 	if err != nil {
+		h.logger.Errorw("error while generating access token", "error", err)
 		http.Error(w, "Ошибка генерации access token", http.StatusInternalServerError)
 		return
 	}
