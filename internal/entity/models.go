@@ -10,6 +10,7 @@ type User struct {
 	Password  string    `db:"password" json:"password" validate:"required"`
 	CreatedAt time.Time `db:"created_at" json:"created_at,omitempty"`
 	UpdatedAt time.Time `db:"updated_at" json:"updated_at,omitempty"`
+
 }
 
 // UserClaims - модель токена с валидацией
@@ -17,4 +18,4 @@ type UserClaims struct {
 	UserID    string `json:"user_id"`
 	Email     string `json:"email,omitempty"`
 	ExpiresAt int64  `json:"exp,omitempty"`
-}
+

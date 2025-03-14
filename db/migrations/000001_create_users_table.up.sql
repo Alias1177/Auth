@@ -9,3 +9,4 @@ CREATE TABLE IF NOT EXISTS userslog (
 
 CREATE INDEX idx_userslog_email ON userslog(email);
 CREATE INDEX idx_userslog_username ON userslog(username);
+
