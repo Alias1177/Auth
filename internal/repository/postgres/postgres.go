@@ -3,6 +3,7 @@ package postgres
 import (
 	"Auth/internal/entity"
 	"Auth/internal/repository/redis"
+	"Auth/pkg/logger"
 	"context"
 	"database/sql"
 	"errors"
@@ -15,12 +16,14 @@ import (
 type PostgresRepository struct {
 	db        *sqlx.DB
 	redisRepo *redis.RedisRepository // Добавляем Redis репозиторий
+	log       *logger.Logger
 }
 
-func NewPostgresRepository(db *sqlx.DB, redisRepo *redis.RedisRepository) *PostgresRepository {
+func NewPostgresRepository(db *sqlx.DB, redisRepo *redis.RedisRepository, log *logger.Logger) *PostgresRepository {
 	return &PostgresRepository{
 		db:        db,
 		redisRepo: redisRepo,
+		log:       log,
 	}
 }
 
@@ -30,23 +33,26 @@ func (r *PostgresRepository) GetUserByID(ctx context.Context, id int) (*entity.U
 	query := `SELECT id, username, email, password FROM UsersLog WHERE id = $1`
 	err := r.db.GetContext(ctx, &user, query, id)
 	if err != nil {
+		r.log.Errorw("Get err", "err", err)
 		return nil, fmt.Errorf("failed to get user from db: %w", err)
 	}
 	return &user, nil
 }
 
 // GetUserByEmail получает пользователя из базы данных по email.
-func (repo *PostgresRepository) GetUserByEmail(ctx context.Context, email string) (*entity.User, error) {
+func (r *PostgresRepository) GetUserByEmail(ctx context.Context, email string) (*entity.User, error) {
 	query := "SELECT id, username, email, password FROM UsersLog WHERE email = $1"
 	user := entity.User{}
 
-	err := repo.db.QueryRowContext(ctx, query, email).
+	err := r.db.QueryRowContext(ctx, query, email).
 		Scan(&user.ID, &user.UserName, &user.Email, &user.Password)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			r.log.Errorw("Get err", "err", err)
 			return nil, sql.ErrNoRows
 		}
+		r.log.Errorw("Get err", "err", err)
 		return nil, err // другая ошибка (например, ошибка соединения или запроса)
 	}
 
@@ -64,23 +70,18 @@ func (r *PostgresRepository) CreateUser(ctx context.Context, user *entity.User) 
 // UpdateUser обновляет данные существующего пользователя в базе данных.
 func (r *PostgresRepository) UpdateUser(ctx context.Context, user *entity.User) error {
 	query := `UPDATE UsersLog 
-             SET username = $1, email = $2, password = $3 
-             WHERE id = $4`
-	result, err := r.db.ExecContext(ctx, query, user.UserName, user.Email, user.Password, user.ID)
+              SET username = $1, email = $2, password = $3, updated_at = NOW()
+              WHERE id = $4
+              RETURNING updated_at`
+	err := r.db.QueryRowxContext(ctx, query, user.UserName, user.Email, user.Password, user.ID).Scan(&user.UpdatedAt)
 	if err != nil {
+		r.log.Errorw("Update err", "err", err)
 		return fmt.Errorf("failed to update user: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-	if rowsAffected == 0 {
-		return fmt.Errorf("user not found")
 	}
 
 	err = r.redisRepo.SetUser(ctx, user)
 	if err != nil {
+		r.log.Errorw("redis set err", "err", err)
 		return fmt.Errorf("failed to update user in redis: %w", err)
 	}
 
