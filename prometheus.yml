@@ -1,32 +1,67 @@
-# my global config
+# prometheus.yml
 global:
-  scrape_interval: 15s # Set the scrape interval to every 15 seconds. Default is every 1 minute.
-  evaluation_interval: 15s # Evaluate rules every 15 seconds. The default is every 1 minute.
-  # scrape_timeout is set to the global default (10s).
+  scrape_interval: 15s
+  evaluation_interval: 15s
 
-# Alertmanager configuration
+# Правила алертинга
+rule_files:
+  - "alert_rules.yml"
+
+# Конфигурация алертменеджера
 alerting:
   alertmanagers:
     - static_configs:
         - targets:
           # - alertmanager:9093
 
-# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
-rule_files:
-  # - "first_rules.yml"
-  # - "second_rules.yml"
-
-# A scrape configuration containing exactly one endpoint to scrape:
-# Here it's Prometheus itself.
 scrape_configs:
-  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
-  - job_name: "prometheus"
-
-    # metrics_path defaults to '/metrics'
-    # scheme defaults to 'http'.
-
+  # Мониторинг самого Prometheus
+  - job_name: 'prometheus'
     static_configs:
-      - targets: ["localhost:9090"]
-       # The label name is added as a label `label_name=<label_value>` to any timeseries scraped from this config.
-        labels:
-          app: "prometheus"
+      - targets: ['localhost:9090']
+
+  # Мониторинг сервиса авторизации
+  - job_name: 'auth_service'
+    metrics_path: '/metrics'
+    scrape_interval: 5s  # Более частый опрос для сервиса авторизации
+    static_configs:
+      - targets: ['auth-service:8080']
+
+    # Добавляем метки для сервиса
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - source_labels: []
+        target_label: service
+        replacement: 'auth-service'
+
+  # Node Exporter для мониторинга хоста
+  - job_name: 'node_exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # Redis Exporter для мониторинга Redis
+  - job_name: 'redis_exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+    # Добавляем метки для Redis
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - source_labels: []
+        target_label: service
+        replacement: 'redis'
+
+  # PostgreSQL Exporter для мониторинга PostgreSQL
+  - job_name: 'postgres_exporter'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+    # Добавляем метки для PostgreSQL
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - source_labels: []
+        target_label: service
+        replacement: 'postgres'
