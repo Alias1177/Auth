@@ -39,7 +39,6 @@ services:
     depends_on:
       - postgres
       - redis
-      - kafka
 
   grafana:
     image: grafana/grafana:latest
@@ -56,5 +55,4 @@ volumes:
   postgres_data:
   redis_data:
   grafana_data:
-
 
