@@ -13,6 +13,8 @@ import (
 	"Auth/pkg/jwt"
 	"Auth/pkg/logger"
 	"Auth/pkg/migration"
+	postgres2 "Auth/pkg/migration/postgres"
+	redis_migration "Auth/pkg/migration/redis"
 	"context"
 	"errors"
 	"github.com/go-chi/chi/v5"
@@ -34,8 +36,7 @@ func main() {
 	r := chi.NewRouter()
 
 	loggerMiddleware := middleware.NewLoggerMiddleware(logInstance)
-	r.Use(loggerMiddleware.Handler)
-
+	//metrics := middleware.NewMetricsMiddleware("auth_service")
 	// Настройка CORS
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:3000"}, // TODO Укажите точный домен вашего фронтенда
@@ -58,8 +59,8 @@ func main() {
 	}
 	defer postgresDB.Close()
 
-	// Запуск миграций
-	migrator, err := migration.NewMigrator(postgresDB.GetConn(), "db/migrations", logInstance)
+	// Запуск миграций Postgres
+	migrator, err := postgres2.NewMigrator(postgresDB.GetConn(), "db/migrations/postgres", logInstance)
 	if err != nil {
 		logInstance.Fatalw("Failed to create migrator", "error", err)
 	}
@@ -67,13 +68,18 @@ func main() {
 
 	if err := migrator.Up(); err != nil {
 		if errors.Is(err, migration.ErrNoChange) {
-			logInstance.Infow("No new migrations, skipping")
+			logInstance.Infow("No new PostgreSQL migrations, skipping")
 		} else {
-			logInstance.Fatalw("Failed to run migrations", "error", err)
+			logInstance.Fatalw("Failed to run PostgreSQL migrations", "error", err)
 		}
 	} else {
-		logInstance.Infow("Database migrations completed successfully")
+		logInstance.Infow("PostgreSQL migrations completed successfully")
 	}
+
+	//Откат миграции (по необходимости)
+	//if err := migrator.Down(); err != nil {
+	//	logInstance.Errorf("Rollback failed: %v", err)
+	//}
 
 	// Подключение к Redis
 	redisClient := config.NewRedisClient(cfg.Redis)
@@ -81,6 +87,19 @@ func main() {
 		logInstance.Fatalw("Failed to connect Redis", "error", err)
 	}
 	defer redisClient.Close()
+
+	// Запуск миграции Redis
+	redisMigrator := redis_migration.NewRedisMigrator(redisClient, logInstance)
+	if err := redisMigrator.Up(ctx); err != nil {
+		logInstance.Fatalw("Failed to run Redis migrations", "error", err)
+	} else {
+		logInstance.Infow("Redis migrations completed successfully")
+	}
+
+	// Откат миграции (по необходимости)
+	// if err := migrator.Down(ctx); err != nil {
+	//     logInstance.Fatalw("Failed to rollback Redis migrations", "error", err)
+	// }
 
 	// Создание репозиториев
 	postgresRepo := postgres.NewPostgresRepository(postgresDB.GetConn(), redis.NewRedisRepository(redisClient, logInstance), logInstance)
@@ -97,9 +116,14 @@ func main() {
 	userHandler := user.NewUserHandler(mainRepo, logInstance)
 	userGet := user.NewUserHandler(mainRepo, logInstance)
 
+	//middlewares
+	r.Use(loggerMiddleware.Handler)
+	//r.Use(metrics.Middleware)
+
 	// Маршруты
 	r.Post("/login", authHandler.Login)
 	r.Post("/register", registrationHandler.Register)
+	//r.Handle("/metrics", promhttp.Handler())
 
 	// Защищённые маршруты
 	r.Route("/user", func(r chi.Router) {

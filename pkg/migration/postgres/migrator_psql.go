@@ -1,7 +1,8 @@
-package migration
+package postgres
 
 import (
 	"Auth/pkg/logger"
+	"Auth/pkg/migration"
 	"errors"
 	"fmt"
 	"github.com/golang-migrate/migrate/v4"
@@ -46,11 +47,11 @@ func (m *Migrator) Up() error {
 	err := m.m.Up()
 	if err != nil {
 		if errors.Is(err, migrate.ErrNoChange) {
-			m.log.Warnw("No new migrations to apply")
-			return ErrNoChange
+			m.log.Infow("No new migrations to apply")
+			return migration.ErrNoChange
 		}
 		m.log.Errorw("Failed to apply migrations", "error", err)
-		return fmt.Errorf("%w: %v", ErrUpFailed, err)
+		return fmt.Errorf("%w: %v", migration.ErrUpFailed, err)
 	}
 	m.log.Infow("Migrations applied successfully")
 	return nil
@@ -61,7 +62,7 @@ func (m *Migrator) Down() error {
 	err := m.m.Down()
 	if err != nil {
 		m.log.Errorw("Failed to rollback migration", "error", err)
-		return fmt.Errorf("%w: %v", ErrDownFailed, err)
+		return fmt.Errorf("%w: %v", migration.ErrDownFailed, err)
 	}
 	m.log.Infow("Migration rolled back successfully")
 	return nil
