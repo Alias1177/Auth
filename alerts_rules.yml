@@ -1,0 +1,75 @@
+# alert_rules.yml
+groups:
+  - name: auth_service_alerts
+    rules:
+      # Слишком много 5xx ошибок
+      - alert: HighErrorRate5xx
+        expr: sum(rate(auth_service_http_response_codes_total{code=~"5.*"}[5m])) / sum(rate(auth_service_http_response_codes_total[5m])) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Высокий уровень 5xx ошибок"
+          description: "Более 5% запросов возвращают 5xx ошибки в течение 2 минут"
+
+      # Слишком много 4xx ошибок
+      - alert: HighErrorRate4xx
+        expr: sum(rate(auth_service_http_response_codes_total{code=~"4.*"}[5m])) / sum(rate(auth_service_http_response_codes_total[5m])) > 0.20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Высокий уровень 4xx ошибок"
+          description: "Более 20% запросов возвращают 4xx ошибки в течение 5 минут"
+
+      # Долгое время ответа
+      - alert: SlowResponseTime
+        expr: histogram_quantile(0.95, sum(rate(auth_service_http_response_time_seconds_bucket[5m])) by (le)) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Медленные ответы авторизации"
+          description: "95-й процентиль времени ответа превышает 1 секунду в течение 5 минут"
+
+  - name: database_alerts
+    rules:
+      # PostgreSQL не доступен
+      - alert: PostgreSQLDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL недоступен"
+          description: "PostgreSQL экземпляр недоступен уже более 1 минуты"
+
+      # Redis не доступен
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis недоступен"
+          description: "Redis экземпляр недоступен уже более 1 минуты"
+
+      # Высокое использование памяти Redis
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Высокое использование памяти Redis"
+          description: "Redis использует более 80% доступной памяти в течение 5 минут"
+
+      # Высокая нагрузка на PostgreSQL
+      - alert: PostgreSQLHighConnections
+        expr: sum(pg_stat_activity_count) > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Высокое количество подключений к PostgreSQL"
+          description: "Более 100 активных подключений к PostgreSQL в течение 5 минут"
