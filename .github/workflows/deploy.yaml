@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4  # клонирование репозитория (без .env, он в .gitignore)
 
       - name: Copy files to server
         uses: appleboy/scp-action@master
@@ -19,6 +19,17 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "."
           target: "~/auth-deploy"
+
+      # вот новый шаг, создающий .env на сервере!
+      - name: Create .env file on server (automatic from GitHub Secret)
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "${{ secrets.ENV_FILE_CONTENTS }}" > ~/auth-deploy/.env
+            chmod 600 ~/auth-deploy/.env
 
       - name: Deploy on server via SSH
         uses: appleboy/ssh-action@master
