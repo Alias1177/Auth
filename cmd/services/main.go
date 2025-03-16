@@ -39,7 +39,7 @@ func main() {
 	//metrics := middleware.NewMetricsMiddleware("auth_service")
 	// Настройка CORS
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:3000"}, // TODO Укажите точный домен вашего фронтенда
+		AllowedOrigins:   []string{"*"}, // TODO Укажите точный домен вашего фронтенда
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Content-Type", "Authorization"},
 		AllowCredentials: true,
