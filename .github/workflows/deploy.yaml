@@ -1,0 +1,39 @@
+name: Deploy Auth CI/CD
+
+on:
+  push:
+    branches: [ "main", "master" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy files to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "."
+          target: "~/auth-deploy"
+
+      - name: Deploy on server via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/auth-deploy
+            docker compose down
+            docker compose build
+            docker compose up -d
+            
+            # миграция БД при необходимости:
+            migrate -path ./db/migrations -database "$(grep DATABASE_DSN .env | cut -d '=' -f2-)" up
+
+            # перезапустить systemd сервис, если используется
+            sudo systemctl restart auth || true
