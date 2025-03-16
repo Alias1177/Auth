@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   auth-app:
     container_name: auth-app
