@@ -134,7 +134,7 @@ func main() {
 
 	// Запуск сервера
 	logInstance.Infow("Starting server", "port", 8080)
-	if err := http.ListenAndServe(":8080", r); err != nil {
+	if err := http.ListenAndServe("0.0.0.0:8080", r); err != nil {
 		logInstance.Fatalw("Server failed", "error", err)
 	}
 }
