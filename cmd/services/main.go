@@ -39,7 +39,10 @@ func main() {
 	//metrics := middleware.NewMetricsMiddleware("auth_service")
 	// Настройка CORS
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"*"}, //TODO подстаить сервак фронта
+		AllowedOrigins: []string{}, // Пустой список (разрешим динамически)
+		AllowOriginFunc: func(r *http.Request, origin string) bool {
+			return true
+		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Content-Type", "Authorization"},
 		AllowCredentials: true,
