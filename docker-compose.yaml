@@ -5,7 +5,7 @@ services:
     ports:
       - "8080:8080"
     env_file:
-      - .env
+      - .env  # Пусть берёт DATABASE_DSN отсюда
     depends_on:
       postgres:
         condition: service_healthy
@@ -21,13 +21,12 @@ services:
       POSTGRES_PASSWORD: secret
       POSTGRES_DB: mydb
     ports:
-      - "5435:5432"
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # вот что нужно добавить
-      - ./db/migrations:/docker-entrypoint-initdb.d
+      - ./db/migrations:/docker-entrypoint-initdb.d  # ✅ Исправленный путь!
     healthcheck:
-      test: [ "CMD", "pg_isready", "-U", "admin" ]
+      test: [ "CMD", "pg_isready", "-U", "admin", "-d", "mydb" ] # ✅ Указываем базу
       interval: 10s
       retries: 5
       start_period: 5s
