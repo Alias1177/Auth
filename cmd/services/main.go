@@ -19,6 +19,7 @@ import (
 	"errors"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"net/http"
 )
@@ -36,7 +37,7 @@ func main() {
 	r := chi.NewRouter()
 
 	loggerMiddleware := middleware.NewLoggerMiddleware(logInstance)
-	//metrics := middleware.NewMetricsMiddleware("auth_service")
+	metrics := middleware.NewMetricsMiddleware("auth_service")
 	// Настройка CORS
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins: []string{}, // Пустой список (разрешим динамически)
@@ -63,7 +64,7 @@ func main() {
 	defer postgresDB.Close()
 
 	// Запуск миграций Postgres
-	migrator, err := postgres2.NewMigrator(postgresDB.GetConn(), "db/migrations/postgres", logInstance)
+	migrator, err := postgres2.NewMigrator(postgresDB.GetConn(), "db/migrations", logInstance)
 	if err != nil {
 		logInstance.Fatalw("Failed to create migrator", "error", err)
 	}
@@ -73,13 +74,10 @@ func main() {
 		if errors.Is(err, migration.ErrNoChange) {
 			logInstance.Infow("No new PostgreSQL migrations, skipping")
 		} else {
-			logInstance.Fatalw("Failed to run PostgreSQL migrations", "error", err)
+			logInstance.Infow("PostgreSQL migrations completed successfully")
 		}
-	} else {
-		logInstance.Infow("PostgreSQL migrations completed successfully")
 	}
-
-	//Откат миграции (по необходимости)
+	////Откат миграции (по необходимости)
 	//if err := migrator.Down(); err != nil {
 	//	logInstance.Errorf("Rollback failed: %v", err)
 	//}
@@ -121,12 +119,12 @@ func main() {
 
 	//middlewares
 	r.Use(loggerMiddleware.Handler)
-	//r.Use(metrics.Middleware)
+	r.Use(metrics.Middleware)
 
 	// Маршруты
 	r.Post("/login", authHandler.Login)
 	r.Post("/register", registrationHandler.Register)
-	//r.Handle("/metrics", promhttp.Handler())
+	r.Handle("/metrics", promhttp.Handler())
 
 	// Защищённые маршруты
 	r.Route("/user", func(r chi.Router) {
