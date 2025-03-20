@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"github.com/go-chi/chi/v5"
+
 	"github.com/go-chi/cors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
@@ -27,18 +28,18 @@ import (
 func main() {
 	ctx := context.Background()
 
-	// Логгер
 	logInstance, err := logger.NewSimpleLogger("info")
 	if err != nil {
 		log.Fatal("Failed to initialize logger:", err)
 	}
+
 	defer logInstance.Close()
 
 	r := chi.NewRouter()
 
 	loggerMiddleware := middleware.NewLoggerMiddleware(logInstance)
 	metrics := middleware.NewMetricsMiddleware("auth_service")
-	// Настройка CORS
+
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins: []string{}, // Пустой список (разрешим динамически)
 		AllowOriginFunc: func(r *http.Request, origin string) bool {

@@ -13,7 +13,7 @@ RUN go mod download
 COPY . .
 
 # Билдим Go-приложение
-RUN cd cmd/services && CGO_ENABLED=0 go build -ldflags "-s -w" -o auth-app
+RUN cd cmd/service && CGO_ENABLED=0 go build -ldflags "-s -w" -o auth-app
 
 # Этап 2: Запуск приложения в минимальном контейнере
 FROM alpine:latest
