@@ -67,7 +67,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// 🔐 Проверка пароля
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		h.logger.Errorw("password does not match with hash. password:", req.Password, "hash:", user.Password, "error", err)
+		h.logger.Errorw("Пароль не совпадает с хешем", "error", err)
 		http.Error(w, "Пароль неверный", http.StatusUnauthorized)
 		return
 	}
