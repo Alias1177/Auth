@@ -21,7 +21,7 @@ FROM alpine:latest
 WORKDIR /app
 
 # Копируем только готовый бинарник из builder-стадии
-COPY --from=builder /app/cmd/services/auth-app ./auth-app
+COPY --from=builder /app/cmd/service/auth-app ./auth-app
 
 # Копируем .env файл (по необходимости)
 COPY .env .env
