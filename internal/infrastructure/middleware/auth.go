@@ -40,7 +40,7 @@ func JWTAuthMiddleware(manager usecase.TokenManager) func(http.Handler) http.Han
 			// 4️⃣ Проверяем токен
 			userClaims, err := manager.ValidateAccessToken(token)
 			if err != nil {
-				fmt.Println("Ошибка валидации токена:", err) // Посмотрим, что не так
+				fmt.Println("Ошибка валидации токена:", err)
 				http.Error(w, "Unauthorized - invalid token", http.StatusUnauthorized)
 				return
 			}
