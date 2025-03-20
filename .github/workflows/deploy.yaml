@@ -20,17 +20,7 @@ jobs:
           source: "."
           target: "~/auth-deploy"
 
-      - name: Create .env file on server
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            echo "${{ secrets.ENV_FILE_CONTENTS }}" > ~/auth-deploy/.env
-            chmod 600 ~/auth-deploy/.env
-
-      - name: Deploy on server via SSH
+      - name: Deploy on server
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -39,31 +29,31 @@ jobs:
           script: |
             cd ~/auth-deploy
             
-            # Остановка и удаление всех контейнеров
+            # Create .env file
+            echo "${{ secrets.ENV_FILE_CONTENTS }}" > .env
+            chmod 600 .env
+            
+            # Stop all running containers
             docker compose down
             
-            # Сборка контейнеров
+            # Build the containers
             docker compose build
             
-            # Запускаем только базу данных и другие зависимые сервисы (без auth-app)
-            docker compose up -d postgres redis prometheus grafana
+            # Modify docker-compose.yaml temporarily to remove port binding during migration
+            sed -i.bak 's/- "8080:8080"/# - "8080:8080"/' docker-compose.yaml
             
-            # Ждем, пока PostgreSQL полностью запустится
-            echo "Ожидание готовности PostgreSQL..."
-            docker compose exec -T postgres sh -c 'until pg_isready -U admin -d mydb; do sleep 2; done'
+            # Run a separate container only for migrations
+            docker compose run --rm auth-app ./auth-app -migrate || true
             
-            # Запуск временного контейнера для миграций
-            echo "Запуск миграций..."
-            docker compose run --rm --entrypoint "./auth-app -migrate" auth-app
+            # Restore the original docker-compose file
+            mv docker-compose.yaml.bak docker-compose.yaml
             
-            # Теперь запускаем основной сервис auth-app
-            docker compose up -d auth-app
+            # Start all containers normally
+            docker compose up -d
             
-            # Проверка статуса контейнеров
+            # Check the status
+            sleep 5
             docker compose ps
             
-            # Проверка логов auth-app
-            docker compose logs --tail 10 auth-app
-            
-            # перезапустить systemd сервис, если используется
+            # Restart systemd service if needed
             sudo systemctl restart auth || true
