@@ -20,8 +20,8 @@ jobs:
           source: "."
           target: "~/auth-deploy"
 
-      # вот новый шаг, создающий .env на сервере!
-      - name: Create .env file on server (automatic from GitHub Secret)
+      # создание .env на сервере из GitHub Secret
+      - name: Create .env file on server
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -43,13 +43,13 @@ jobs:
             docker compose build
             docker compose up -d
             
-            # исправленная миграция БД с проверкой схемы
-            DSN=$(grep DATABASE_DSN .env | cut -d '=' -f2-)
-            if [[ $DSN != postgres://* ]]; then
-              # Если нет схемы postgres://, добавим её
-              DSN="postgres://$DSN"
-            fi
-            migrate -path ./db/migrations -database "$DSN" up
-
+            # Ждем несколько секунд для полного запуска контейнеров
+            sleep 10
+            
+            # Запустить контейнер приложения с миграциями внутри Docker среды
+            # Используем параметр -migrate для запуска миграций внутри контейнера
+            # Это запустит миграцию в среде, где "postgres" разрешается как имя хоста
+            docker compose exec -T auth-app ./auth-app -migrate
+            
             # перезапустить systemd сервис, если используется
             sudo systemctl restart auth || true
