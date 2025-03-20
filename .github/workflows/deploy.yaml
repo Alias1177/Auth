@@ -39,17 +39,37 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ~/auth-deploy
+            
+            # Проверка и освобождение порта 8080 перед запуском
+            PORT_PID=$(sudo lsof -t -i:8080 || echo "")
+            if [ ! -z "$PORT_PID" ]; then
+              echo "Освобождение порта 8080, занятого процессом $PORT_PID"
+              sudo kill -9 $PORT_PID || true
+              sleep 2
+            fi
+            
+            # Остановка всех контейнеров
             docker compose down
+            
+            # Сборка новых образов
             docker compose build
+            
+            # Запуск контейнеров в detached режиме
             docker compose up -d
             
-            # Ждем несколько секунд для полного запуска контейнеров
-            sleep 10
+            # Ждем, пока контейнер PostgreSQL полностью запустится и будет готов
+            echo "Ожидание готовности PostgreSQL..."
+            docker compose exec -T postgres sh -c 'until pg_isready -U admin -d mydb; do sleep 2; done'
             
-            # Запустить контейнер приложения с миграциями внутри Docker среды
-            # Используем параметр -migrate для запуска миграций внутри контейнера
-            # Это запустит миграцию в среде, где "postgres" разрешается как имя хоста
+            # Запуск миграций внутри контейнера auth-app
+            echo "Запуск миграций..."
             docker compose exec -T auth-app ./auth-app -migrate
+            
+            # Проверка статуса контейнеров после применения миграций
+            docker compose ps
+            
+            # Проверка логов auth-app
+            docker compose logs --tail 20 auth-app
             
             # перезапустить systemd сервис, если используется
             sudo systemctl restart auth || true
