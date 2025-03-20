@@ -2,10 +2,11 @@ services:
   auth-app:
     container_name: auth-app
     build: .
+    command: ["./auth-app", "-migrate"]  # Запуск с флагом миграции
     ports:
       - "8080:8080"
     env_file:
-      - .env  # Пусть берёт DATABASE_DSN отсюда
+      - .env
     depends_on:
       postgres:
         condition: service_healthy

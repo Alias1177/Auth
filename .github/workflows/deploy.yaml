@@ -43,8 +43,13 @@ jobs:
             docker compose build
             docker compose up -d
             
-            # миграция БД при необходимости:
-            migrate -path ./db/migrations -database "$(grep DATABASE_DSN .env | cut -d '=' -f2-)" up
+            # исправленная миграция БД с проверкой схемы
+            DSN=$(grep DATABASE_DSN .env | cut -d '=' -f2-)
+            if [[ $DSN != postgres://* ]]; then
+              # Если нет схемы postgres://, добавим её
+              DSN="postgres://$DSN"
+            fi
+            migrate -path ./db/migrations -database "$DSN" up
 
             # перезапустить systemd сервис, если используется
             sudo systemctl restart auth || true
