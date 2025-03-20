@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4  # клонирование репозитория (без .env, он в .gitignore)
+      - uses: actions/checkout@v4
 
       - name: Copy files to server
         uses: appleboy/scp-action@master
@@ -20,7 +20,6 @@ jobs:
           source: "."
           target: "~/auth-deploy"
 
-      # создание .env на сервере из GitHub Secret
       - name: Create .env file on server
         uses: appleboy/ssh-action@master
         with:
@@ -40,36 +39,31 @@ jobs:
           script: |
             cd ~/auth-deploy
             
-            # Проверка и освобождение порта 8080 перед запуском
-            PORT_PID=$(sudo lsof -t -i:8080 || echo "")
-            if [ ! -z "$PORT_PID" ]; then
-              echo "Освобождение порта 8080, занятого процессом $PORT_PID"
-              sudo kill -9 $PORT_PID || true
-              sleep 2
-            fi
-            
-            # Остановка всех контейнеров
+            # Остановка и удаление всех контейнеров
             docker compose down
             
-            # Сборка новых образов
+            # Сборка контейнеров
             docker compose build
             
-            # Запуск контейнеров в detached режиме
-            docker compose up -d
+            # Запускаем только базу данных и другие зависимые сервисы (без auth-app)
+            docker compose up -d postgres redis prometheus grafana
             
-            # Ждем, пока контейнер PostgreSQL полностью запустится и будет готов
+            # Ждем, пока PostgreSQL полностью запустится
             echo "Ожидание готовности PostgreSQL..."
             docker compose exec -T postgres sh -c 'until pg_isready -U admin -d mydb; do sleep 2; done'
             
-            # Запуск миграций внутри контейнера auth-app
+            # Запуск временного контейнера для миграций
             echo "Запуск миграций..."
-            docker compose exec -T auth-app ./auth-app -migrate
+            docker compose run --rm --entrypoint "./auth-app -migrate" auth-app
             
-            # Проверка статуса контейнеров после применения миграций
+            # Теперь запускаем основной сервис auth-app
+            docker compose up -d auth-app
+            
+            # Проверка статуса контейнеров
             docker compose ps
             
             # Проверка логов auth-app
-            docker compose logs --tail 20 auth-app
+            docker compose logs --tail 10 auth-app
             
             # перезапустить systemd сервис, если используется
             sudo systemctl restart auth || true
