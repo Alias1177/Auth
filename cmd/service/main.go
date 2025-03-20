@@ -2,6 +2,7 @@ package main
 
 import (
 	"Auth/config"
+	"Auth/db/migrations/manager"
 	"Auth/internal/delivery/http/registration"
 	"Auth/internal/delivery/http/registration/auth"
 	"Auth/internal/delivery/http/user"
@@ -12,13 +13,9 @@ import (
 	"Auth/internal/repository/redis"
 	"Auth/pkg/jwt"
 	"Auth/pkg/logger"
-	"Auth/pkg/migration"
-	postgres2 "Auth/pkg/migration/postgres"
-	redis_migration "Auth/pkg/migration/redis"
 	"context"
-	"errors"
+	"flag"
 	"github.com/go-chi/chi/v5"
-
 	"github.com/go-chi/cors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
@@ -26,6 +23,10 @@ import (
 )
 
 func main() {
+	// Флаг для запуска миграций при старте приложения
+	var runMigrations = flag.Bool("migrate", false, "Запустить миграции при старте приложения")
+	flag.Parse()
+
 	ctx := context.Background()
 
 	logInstance, err := logger.NewSimpleLogger("info")
@@ -64,25 +65,6 @@ func main() {
 	}
 	defer postgresDB.Close()
 
-	// Запуск миграций Postgres
-	migrator, err := postgres2.NewMigrator(postgresDB.GetConn(), "db/migrations", logInstance)
-	if err != nil {
-		logInstance.Fatalw("Failed to create migrator", "error", err)
-	}
-	defer migrator.Close()
-
-	if err := migrator.Up(); err != nil {
-		if errors.Is(err, migration.ErrNoChange) {
-			logInstance.Infow("No new PostgreSQL migrations, skipping")
-		} else {
-			logInstance.Infow("PostgreSQL migrations completed successfully")
-		}
-	}
-	////Откат миграции (по необходимости)
-	//if err := migrator.Down(); err != nil {
-	//	logInstance.Errorf("Rollback failed: %v", err)
-	//}
-
 	// Подключение к Redis
 	redisClient := config.NewRedisClient(cfg.Redis)
 	if _, err := redisClient.Ping(ctx).Result(); err != nil {
@@ -90,18 +72,24 @@ func main() {
 	}
 	defer redisClient.Close()
 
-	// Запуск миграции Redis
-	redisMigrator := redis_migration.NewRedisMigrator(redisClient, logInstance)
-	if err := redisMigrator.Up(ctx); err != nil {
-		logInstance.Fatalw("Failed to run Redis migrations", "error", err)
-	} else {
-		logInstance.Infow("Redis migrations completed successfully")
-	}
+	// Запуск миграций если указан флаг
+	if *runMigrations {
+		logInstance.Infow("Запуск миграций...")
 
-	// Откат миграции (по необходимости)
-	// if err := migrator.Down(ctx); err != nil {
-	//     logInstance.Fatalw("Failed to rollback Redis migrations", "error", err)
-	// }
+		// Создаем менеджер миграций
+		migrationMgr, err := manager.NewMigrationManager(postgresDB.GetConn(), redisClient, logInstance, "db/migrations")
+		if err != nil {
+			logInstance.Fatalw("Не удалось создать менеджер миграций", "error", err)
+		}
+		defer migrationMgr.Close()
+
+		// Запускаем миграции
+		if err := migrationMgr.MigrateUp(ctx); err != nil {
+			logInstance.Fatalw("Ошибка при применении миграций", "error", err)
+		}
+
+		logInstance.Infow("Миграции успешно применены")
+	}
 
 	// Создание репозиториев
 	postgresRepo := postgres.NewPostgresRepository(postgresDB.GetConn(), redis.NewRedisRepository(redisClient, logInstance), logInstance)
