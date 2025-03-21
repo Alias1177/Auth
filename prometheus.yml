@@ -8,7 +8,7 @@ remote_write:
   - url: https://prometheus-prod-36-prod-us-west-0.grafana.net/api/prom/push
     basic_auth:
       username: 2335073
-      password: "СЮДА GRAFAN_API_TOKEN"
+      password: glc_eyJvIjoiMTM4MTQ0MyIsIm4iOiJwZGMtdGVhbWVtYWlscHJhYy1kZWZhdWx0LWF1dGhzZXJ2aWNlIiwiayI6IllBOWc3NkZTMTRqQjdydUpNMTdaZEE5MSIsIm0iOnsiciI6InByb2QtdXMtd2VzdC0wIn19
 
 # Правила алертинга
 rule_files:
