@@ -4,6 +4,7 @@ import (
 	"Auth/config"
 	"Auth/internal/entity"
 	"Auth/internal/usecase"
+	"Auth/pkg/kafka"
 	"Auth/pkg/logger"
 	"database/sql"
 	"encoding/json"
@@ -18,14 +19,22 @@ type RegistrationHandler struct {
 	tokenManager   usecase.TokenManager
 	jwtConfig      config.JWTConfig
 	logger         logger.Logger
+	kafkaProducer  *kafka.Producer
 }
 
-func NewRegistrationHandler(repo usecase.UserRepository, manager usecase.TokenManager, cfg config.JWTConfig, log *logger.Logger) *RegistrationHandler {
+func NewRegistrationHandler(
+	repo usecase.UserRepository,
+	manager usecase.TokenManager,
+	cfg config.JWTConfig,
+	log *logger.Logger,
+	producer *kafka.Producer,
+) *RegistrationHandler {
 	return &RegistrationHandler{
 		userRepository: repo,
 		tokenManager:   manager,
 		jwtConfig:      cfg,
-		logger:         *log, // ✅ Теперь логгер будет инициализирован
+		logger:         *log,
+		kafkaProducer:  producer,
 	}
 }
 
@@ -83,6 +92,14 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 		h.logger.Errorw("error while creating user", "error", err)
 		http.Error(w, "Ошибка создания пользователя", http.StatusInternalServerError)
 		return
+	}
+
+	// Отправляем информацию о регистрации в Kafka
+	if h.kafkaProducer != nil {
+		if err := h.kafkaProducer.SendEmailRegistration(r.Context(), req.Email, req.Username); err != nil {
+			// Логируем ошибку, но не прерываем процесс регистрации
+			h.logger.Errorw("Failed to send registration to Kafka", "error", err, "email", req.Email)
+		}
 	}
 
 	claims := entity.UserClaims{

@@ -12,6 +12,7 @@ import (
 	"Auth/internal/repository/postgres"
 	"Auth/internal/repository/redis"
 	"Auth/pkg/jwt"
+	"Auth/pkg/kafka"
 	"Auth/pkg/logger"
 	"context"
 	"flag"
@@ -22,7 +23,6 @@ import (
 	"net/http"
 )
 
-// тут
 func main() {
 	// Флаг для запуска миграций при старте приложения
 	var runMigrations = flag.Bool("migrate", false, "Запустить миграции при старте приложения")
@@ -73,6 +73,10 @@ func main() {
 	}
 	defer redisClient.Close()
 
+	// Инициализация Kafka Producer
+	kafkaProducer := kafka.NewProducer(cfg.Kafka.BrokerAddress, cfg.Kafka.EmailTopic, logInstance)
+	defer kafkaProducer.Close()
+
 	// Запуск миграций если указан флаг
 	if *runMigrations {
 		logInstance.Infow("Запуск миграций...")
@@ -102,7 +106,7 @@ func main() {
 
 	// Инициализация хэндлеров
 	authHandler := auth.NewAuthHandler(tokenManager, cfg.JWT, mainRepo, logInstance)
-	registrationHandler := registration.NewRegistrationHandler(mainRepo, tokenManager, cfg.JWT, logInstance)
+	registrationHandler := registration.NewRegistrationHandler(mainRepo, tokenManager, cfg.JWT, logInstance, kafkaProducer)
 
 	userHandler := user.NewUserHandler(mainRepo, logInstance)
 	userGet := user.NewUserHandler(mainRepo, logInstance)
