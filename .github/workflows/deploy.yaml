@@ -142,12 +142,3 @@ jobs:
               echo "        replacement: 'postgres'" >> prometheus.yml
             fi
             
-            # Start all containers normally
-            docker compose up -d
-            
-            # Check the status
-            sleep 5
-            docker compose ps
-            
-            # Restart systemd service if needed
-            sudo systemctl restart auth || true
