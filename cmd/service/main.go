@@ -22,6 +22,7 @@ import (
 	"net/http"
 )
 
+
 func main() {
 	// Флаг для запуска миграций при старте приложения
 	var (
@@ -38,15 +39,18 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to initialize logger:", err)
 	}
+
 	defer logInstance.Close()
 
 	r := chi.NewRouter()
 
 	loggerMiddleware := middleware.NewLoggerMiddleware(logInstance)
+
 	metrics := middleware.NewMetricsMiddleware(config.ServiceName)
 
 	// Настройки CORS
 	corsOptions := cors.Options{
+
 		AllowedOrigins: []string{}, // Пустой список (разрешим динамически)
 		AllowOriginFunc: func(r *http.Request, origin string) bool {
 			return true
@@ -56,6 +60,7 @@ func main() {
 		AllowCredentials: true,
 		MaxAge:           300,
 	}
+
 
 	// Загрузка конфига
 	cfg, err := config.Load(".env")
@@ -76,6 +81,7 @@ func main() {
 		logInstance.Fatalw("Failed to connect Redis", "error", err)
 	}
 	defer redisClient.Close()
+
 
 	// Создаем менеджер миграций независимо от флагов,
 	// чтобы не дублировать код и иметь единую точку управления миграциями
@@ -112,6 +118,7 @@ func main() {
 			logInstance.Fatalw("Ошибка при применении миграций Redis", "error", err)
 		}
 		logInstance.Infow("Миграции Redis успешно применены")
+
 	}
 
 	// Создание репозиториев
@@ -125,6 +132,7 @@ func main() {
 	// Инициализация хэндлеров
 	authHandler := auth.NewAuthHandler(tokenManager, cfg.JWT, mainRepo, logInstance)
 	registrationHandler := registration.NewRegistrationHandler(mainRepo, tokenManager, cfg.JWT, logInstance)
+
 	userHandler := user.NewUserHandler(mainRepo, logInstance)
 
 	// Базовые middleware

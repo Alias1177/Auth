@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4  # клонирование репозитория (без .env, он в .gitignore)
+      - uses: actions/checkout@v4
 
       - name: Copy files to server
         uses: appleboy/scp-action@master
@@ -20,18 +20,7 @@ jobs:
           source: "."
           target: "~/auth-deploy"
 
-      # вот новый шаг, создающий .env на сервере!
-      - name: Create .env file on server (automatic from GitHub Secret)
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            echo "${{ secrets.ENV_FILE_CONTENTS }}" > ~/auth-deploy/.env
-            chmod 600 ~/auth-deploy/.env
-
-      - name: Deploy on server via SSH
+      - name: Deploy on server
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -39,12 +28,32 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ~/auth-deploy
+            
+            # Create .env file
+            echo "${{ secrets.ENV_FILE_CONTENTS }}" > .env
+            chmod 600 .env
+            
+            # Stop all running containers
             docker compose down
+            
+            # Build the containers
             docker compose build
+            
+            # Modify docker-compose.yaml temporarily to remove port binding during migration
+            sed -i.bak 's/- "8080:8080"/# - "8080:8080"/' docker-compose.yaml
+            
+            # Run a separate container only for migrations
+            docker compose run --rm auth-app ./auth-app -migrate || true
+            
+            # Restore the original docker-compose file
+            mv docker-compose.yaml.bak docker-compose.yaml
+            
+            # Start all containers normally
             docker compose up -d
             
-            # миграция БД при необходимости:
-            migrate -path ./db/migrations -database "$(grep DATABASE_DSN .env | cut -d '=' -f2-)" up
-
-            # перезапустить systemd сервис, если используется
+            # Check the status
+            sleep 5
+            docker compose ps
+            
+            # Restart systemd service if needed
             sudo systemctl restart auth || true

@@ -2,6 +2,7 @@ services:
   auth-app:
     container_name: auth-app
     build: .
+    command: ["./auth-app", "-migrate"]  # Запуск с флагом миграции
     ports:
       - "8080:8080"
     env_file:
@@ -54,7 +55,9 @@ services:
     environment:
       DATA_SOURCE_NAME: "postgresql://admin:secret@postgres:5432/mydb?sslmode=disable"
     ports:
+
       - "9187:9187"
+
     depends_on:
       - postgres
     networks:
