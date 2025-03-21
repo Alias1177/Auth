@@ -106,7 +106,7 @@ func (m *MigrationManager) MigratePostgresDown() error {
 
 // MigrateRedisUp применяет только миграции Redis
 func (m *MigrationManager) MigrateRedisUp(ctx context.Context) error {
-	m.logger.Infow("Запуск миграций Redis...")
+	m.logger.Infow("Запуск миграций Redis....")
 	if err := m.redisMigrator.Up(ctx); err != nil {
 		return fmt.Errorf("ошибка при применении миграций Redis: %w", err)
 	}
