@@ -3,11 +3,13 @@ package auth
 import (
 	"Auth/config"
 	"Auth/internal/entity"
+	"Auth/internal/infrastructure/middleware"
 	"Auth/internal/usecase"
 	"Auth/pkg/logger"
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"strconv"
@@ -42,6 +44,16 @@ func (h *AuthHandler) setTokenCookie(w http.ResponseWriter, cookieName, token st
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	// Сначала вывод отладочной информации
+	fmt.Printf("Обработка пути: %s\n", "/login")
+
+	// Явно добавляем информацию о пути в metrics middleware
+	metricsPath := "hardcoded_login"       // Используем предопределенный путь
+	m := middleware.GetMetricsMiddleware() // Получаем синглтон middleware метрик
+	if m != nil {
+		m.RecordPathForRequest(r, metricsPath) // Устанавливаем путь в middleware
+	}
+
 	var req struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
@@ -67,7 +79,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// 🔐 Проверка пароля
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		h.logger.Errorw("password does not match with hash. password:", req.Password, "hash:", user.Password, "error", err)
+		h.logger.Errorw("Пароль не совпадает с хешем", "error", err)
 		http.Error(w, "Пароль неверный", http.StatusUnauthorized)
 		return
 	}
