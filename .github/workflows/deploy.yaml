@@ -27,9 +27,18 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            # Очистка директории перед началом работы с новыми файлами
+            cd ~
+            mkdir -p ~/auth-deploy-backup
+            cp -r ~/auth-deploy/.env ~/auth-deploy-backup/ 2>/dev/null || true
+            rm -rf ~/auth-deploy/* || true
+            
             cd ~/auth-deploy
             
-            # Create .env file
+            # Восстановление .env из бэкапа если он существовал
+            cp -f ~/auth-deploy-backup/.env ./ 2>/dev/null || true
+            
+            # Create or update .env file
             echo "${{ secrets.ENV_FILE_CONTENTS }}" > .env
             chmod 600 .env
             
@@ -42,18 +51,35 @@ jobs:
             # Modify docker-compose.yaml temporarily to remove port binding during migration
             sed -i.bak 's/- "8080:8080"/# - "8080:8080"/' docker-compose.yaml
             
-            # Run a separate container only for migrations
-            docker compose run --rm auth-app ./auth-app -migrate || true
+            # Run migrations and fail deployment if they fail
+            echo "Running database migrations..."
+            if ! docker compose run --rm auth-app ./auth-app -migrate; then
+              echo "ERROR: Database migrations failed! Deployment aborted."
+              exit 1
+            fi
             
             # Restore the original docker-compose file
             mv docker-compose.yaml.bak docker-compose.yaml
             
-            # Start all containers normally
+            # Start all containers normally - bind to all interfaces
+            sed -i 's/- "8080:8080"/- "0.0.0.0:8080:8080"/' docker-compose.yaml
+            
+            # Start containers with Docker Compose
             docker compose up -d
             
-            # Check the status
-            sleep 5
+            # Allow more time for services to start
+            echo "Waiting for services to start properly..."
+            sleep 15
+            
+            # Check the status of all containers
             docker compose ps
             
-            # Restart systemd service if needed
-            sudo systemctl restart auth || true
+            # Log check - last 10 lines
+            echo "Checking container logs..."
+            docker compose logs --tail=10 auth-app
+            
+            # Check that the service is responding
+            echo "Testing service endpoint..."
+            curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/metrics || echo "Service not responding yet"
+            
+            echo "Deployment completed"
