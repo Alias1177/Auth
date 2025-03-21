@@ -12,6 +12,7 @@ type RedisConfig struct {
 	Password string `env:"REDIS_PASSWORD" env-default:""`
 	DB       int    `env:"REDIS_DB" env-default:"0"`
 }
+
 type JWTConfig struct {
 	Secret string `env:"JWT_SECRET"`
 }
@@ -21,11 +22,18 @@ type DatabaseConfig struct {
 	DSN string `env:"DATABASE_DSN" env-required:"true"`
 }
 
+// KafkaConfig конфигурация для Kafka
+type KafkaConfig struct {
+	BrokerAddress string `env:"KAFKA_BROKER_ADDRESS" env-default:"localhost:29092"`
+	EmailTopic    string `env:"KAFKA_EMAIL_TOPIC" env-default:"user_registrations"`
+}
+
 // Config общая конфигурация приложения
 type Config struct {
 	Database DatabaseConfig
 	Redis    RedisConfig
 	JWT      JWTConfig
+	Kafka    KafkaConfig
 }
 
 // NewRedisClient создает новый клиент Redis на основе конфигурации
