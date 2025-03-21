@@ -110,7 +110,6 @@ func main() {
 	userHandler := user.NewUserHandler(mainRepo, logInstance)
 	userGet := user.NewUserHandler(mainRepo, logInstance)
 
-	//middlewares
 	r.Use(loggerMiddleware.Handler)
 	r.Use(metrics.Middleware)
 
