@@ -42,6 +42,9 @@ jobs:
             echo "${{ secrets.ENV_FILE_CONTENTS }}" > .env
             chmod 600 .env
             
+            # Исправляем формат переменной окружения GRAFANA в docker-compose.yaml
+            sed -i 's/GRAFANA=${{ GRAFANA }}/GRAFANA=${GRAFANA}/' docker-compose.yaml || true
+            
             # Stop all running containers
             docker compose down
             
@@ -49,6 +52,8 @@ jobs:
             docker compose build
             
             # Modify docker-compose.yaml temporarily to remove port binding during migration
+            # Проверяем оба возможных формата портов
+            sed -i.bak 's/- "0.0.0.0:8080:8080"/# - "0.0.0.0:8080:8080"/' docker-compose.yaml || \
             sed -i.bak 's/- "8080:8080"/# - "8080:8080"/' docker-compose.yaml
             
             # Run migrations and fail deployment if they fail
@@ -62,7 +67,10 @@ jobs:
             mv docker-compose.yaml.bak docker-compose.yaml
             
             # Start all containers normally - bind to all interfaces
-            sed -i 's/- "8080:8080"/- "0.0.0.0:8080:8080"/' docker-compose.yaml
+            # Проверяем существующий формат и меняем только если нужно
+            if grep -q '- "8080:8080"' docker-compose.yaml; then
+              sed -i 's/- "8080:8080"/- "0.0.0.0:8080:8080"/' docker-compose.yaml
+            fi
             
             # Start containers with Docker Compose
             docker compose up -d
@@ -78,8 +86,21 @@ jobs:
             echo "Checking container logs..."
             docker compose logs --tail=10 auth-app
             
+            # Проверяем логи Prometheus для диагностики проблем со сбором метрик
+            echo "Checking Prometheus logs..."
+            docker compose logs --tail=10 prometheus
+            
             # Check that the service is responding
             echo "Testing service endpoint..."
             curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/metrics || echo "Service not responding yet"
+            
+            # Проверка доступности метрик с внешнего IP
+            echo "Testing metrics from external IP..."
+            curl -s -o /dev/null -w "%{http_code}" http://194.87.95.28:8080/metrics || echo "External metrics not responding yet"
+            
+            # Проверяем статус правил фаервола
+            echo "Checking firewall rules..."
+            sudo ufw status | grep 8080 || echo "Port 8080 might not be open in firewall"
+            sudo ufw status | grep 9092 || echo "Port 9092 might not be open in firewall"
             
             echo "Deployment completed"

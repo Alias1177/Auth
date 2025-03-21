@@ -55,9 +55,7 @@ services:
     environment:
       DATA_SOURCE_NAME: "postgresql://admin:secret@postgres:5432/mydb?sslmode=disable"
     ports:
-
       - "9187:9187"
-
     depends_on:
       - postgres
     networks:
@@ -81,9 +79,9 @@ services:
     container_name: prometheus
     restart: always
     environment:
-      - GRAFANA=${{ GRAFANA }}
+      - GRAFANA=${GRAFANA}  # Исправлено с ${{ GRAFANA }}
     ports:
-      - "9092:9090"  # Используем 9091 для внешнего доступа, чтобы избежать конфликта портов
+      - "9092:9090"  # Внешний порт 9092 для Prometheus
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - ./alerts_rules.yml:/etc/prometheus/alerts_rules.yml
@@ -94,6 +92,7 @@ services:
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
       - '--enable-feature=remote-write-receiver'  # Включаем возможность получать remote_write запросы
+      - '--web.listen-address=0.0.0.0:9090'  # Явное указание адреса прослушивания
     networks:
       - monitoring-network
 

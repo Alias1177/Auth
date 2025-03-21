@@ -16,7 +16,7 @@ rule_files:
 
 
 scrape_configs:
-  # Мониторинг внешнего сервера
+  # Мониторинг внешнего сервера - используем IP и порт явно
   - job_name: 'external_server'
     metrics_path: '/metrics'
     scrape_interval: 10s
@@ -29,7 +29,7 @@ scrape_configs:
         target_label: service
         replacement: 'external-server'
 
-  # Мониторинг сервиса авторизации
+  # Мониторинг локального сервиса авторизации через имя контейнера
   - job_name: 'auth_service'
     metrics_path: '/metrics'
     scrape_interval: 5s
@@ -41,6 +41,19 @@ scrape_configs:
       - source_labels: []
         target_label: service
         replacement: 'auth-service'
+
+  # Мониторинг локального сервиса авторизации через хост
+  - job_name: 'auth_service_host'
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['localhost:8080']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - source_labels: []
+        target_label: service
+        replacement: 'auth-service-host'
 
   # Redis Exporter для мониторинга Redis
   - job_name: 'redis_exporter'
