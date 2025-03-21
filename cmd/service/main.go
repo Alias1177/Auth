@@ -22,10 +22,15 @@ import (
 	"net/http"
 )
 
-// тут
+
 func main() {
 	// Флаг для запуска миграций при старте приложения
-	var runMigrations = flag.Bool("migrate", false, "Запустить миграции при старте приложения")
+	var (
+		runMigrations        = flag.Bool("migrate", false, "Запустить все миграции при старте приложения")
+		runPostgresMigration = flag.Bool("migrate-pg", false, "Запустить только миграции PostgreSQL")
+		runRedisMigration    = flag.Bool("migrate-redis", false, "Запустить только миграции Redis")
+		migrationsPath       = flag.String("migrations-path", config.DefaultMigrationsPath, "Путь к файлам миграций")
+	)
 	flag.Parse()
 
 	ctx := context.Background()
@@ -40,9 +45,12 @@ func main() {
 	r := chi.NewRouter()
 
 	loggerMiddleware := middleware.NewLoggerMiddleware(logInstance)
-	metrics := middleware.NewMetricsMiddleware("auth_service")
 
-	r.Use(cors.Handler(cors.Options{
+	metrics := middleware.NewMetricsMiddleware(config.ServiceName)
+
+	// Настройки CORS
+	corsOptions := cors.Options{
+
 		AllowedOrigins: []string{}, // Пустой список (разрешим динамически)
 		AllowOriginFunc: func(r *http.Request, origin string) bool {
 			return true
@@ -51,7 +59,8 @@ func main() {
 		AllowedHeaders:   []string{"Content-Type", "Authorization"},
 		AllowCredentials: true,
 		MaxAge:           300,
-	}))
+	}
+
 
 	// Загрузка конфига
 	cfg, err := config.Load(".env")
@@ -73,23 +82,43 @@ func main() {
 	}
 	defer redisClient.Close()
 
-	// Запуск миграций если указан флаг
-	if *runMigrations {
-		logInstance.Infow("Запуск миграций...")
 
-		// Создаем менеджер миграций
-		migrationMgr, err := manager.NewMigrationManager(postgresDB.GetConn(), redisClient, logInstance, "db/migrations")
-		if err != nil {
-			logInstance.Fatalw("Не удалось создать менеджер миграций", "error", err)
-		}
-		defer migrationMgr.Close()
+	// Создаем менеджер миграций независимо от флагов,
+	// чтобы не дублировать код и иметь единую точку управления миграциями
+	migrationMgr, err := manager.NewMigrationManager(
+		postgresDB.GetConn(),
+		redisClient,
+		logInstance,
+		*migrationsPath,
+	)
+	if err != nil {
+		logInstance.Fatalw("Не удалось создать менеджер миграций", "error", err)
+	}
+	defer migrationMgr.Close()
 
-		// Запускаем миграции
+	// Обработка различных вариантов запуска миграций
+	switch {
+	case *runMigrations:
+		logInstance.Infow("Запуск всех миграций...")
 		if err := migrationMgr.MigrateUp(ctx); err != nil {
 			logInstance.Fatalw("Ошибка при применении миграций", "error", err)
 		}
-
 		logInstance.Infow("Миграции успешно применены")
+
+	case *runPostgresMigration:
+		logInstance.Infow("Запуск миграций PostgreSQL...")
+		if err := migrationMgr.MigratePostgresUp(); err != nil {
+			logInstance.Fatalw("Ошибка при применении миграций PostgreSQL", "error", err)
+		}
+		logInstance.Infow("Миграции PostgreSQL успешно применены")
+
+	case *runRedisMigration:
+		logInstance.Infow("Запуск миграций Redis...")
+		if err := migrationMgr.MigrateRedisUp(ctx); err != nil {
+			logInstance.Fatalw("Ошибка при применении миграций Redis", "error", err)
+		}
+		logInstance.Infow("Миграции Redis успешно применены")
+
 	}
 
 	// Создание репозиториев
@@ -105,22 +134,33 @@ func main() {
 	registrationHandler := registration.NewRegistrationHandler(mainRepo, tokenManager, cfg.JWT, logInstance)
 
 	userHandler := user.NewUserHandler(mainRepo, logInstance)
-	userGet := user.NewUserHandler(mainRepo, logInstance)
 
-	//middlewares
+	// Базовые middleware
+	r.Use(cors.Handler(corsOptions))
 	r.Use(loggerMiddleware.Handler)
-	r.Use(metrics.Middleware)
+	r.Use(metrics.Middleware) // Применяем метрики ко всем запросам
 
-	// Маршруты
-	r.Post("/login", authHandler.Login)
-	r.Post("/register", registrationHandler.Register)
-	r.Handle("/metrics", promhttp.Handler())
+	// Эндпоинт для метрик - всегда используем PathMiddleware для правильного определения маршрута
+	r.With(middleware.PathMiddleware("/metrics")).
+		Handle("/metrics", promhttp.Handler())
 
-	// Защищённые маршруты
+	// Аутентификация и регистрация - с явным указанием путей
+	r.With(middleware.PathMiddleware("/login")).
+		Post("/login", authHandler.Login)
+
+	r.With(middleware.PathMiddleware("/register")).
+		Post("/register", registrationHandler.Register)
+
+	// Защищённые маршруты пользователя
 	r.Route("/user", func(r chi.Router) {
 		r.Use(middleware.JWTAuthMiddleware(tokenManager))
-		r.Put("/{id}", userHandler.UpdateUser)
-		r.Get("/me", userGet.GetUserInfoHandler)
+
+		// Явно устанавливаем пути для каждого маршрута
+		r.With(middleware.PathMiddleware("/user/{id}")).
+			Put("/{id}", userHandler.UpdateUser)
+
+		r.With(middleware.PathMiddleware("/user/me")).
+			Get("/me", userHandler.GetUserInfoHandler)
 	})
 
 	// Запуск сервера

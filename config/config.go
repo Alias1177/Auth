@@ -6,6 +6,11 @@ import (
 	"log"
 )
 
+// DefaultMigrationsPath путь к файлам миграции по умолчанию
+const DefaultMigrationsPath = "db/migrations"
+
+const ServiceName = "auth_service"
+
 // RedisConfig конфигурация для Redis
 type RedisConfig struct {
 	Addr     string `env:"REDIS_ADDR" env-default:"localhost:6379"`
