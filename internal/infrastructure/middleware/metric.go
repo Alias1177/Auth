@@ -221,7 +221,7 @@ func (m *MetricsMiddleware) determineRequestPath(r *http.Request) string {
 	}
 
 	// 5. Если всё вышеуказанное не дало результата, используем "unknown"
-	return "пиздец"
+	return "unknown"
 }
 
 // PrintStats выводит текущую статистику по кодам

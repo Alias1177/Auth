@@ -24,7 +24,12 @@ import (
 
 func main() {
 	// Флаг для запуска миграций при старте приложения
-	var runMigrations = flag.Bool("migrate", false, "Запустить миграции при старте приложения")
+	var (
+		runMigrations        = flag.Bool("migrate", false, "Запустить все миграции при старте приложения")
+		runPostgresMigration = flag.Bool("migrate-pg", false, "Запустить только миграции PostgreSQL")
+		runRedisMigration    = flag.Bool("migrate-redis", false, "Запустить только миграции Redis")
+		migrationsPath       = flag.String("migrations-path", config.DefaultMigrationsPath, "Путь к файлам миграций")
+	)
 	flag.Parse()
 
 	ctx := context.Background()
@@ -33,13 +38,12 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to initialize logger:", err)
 	}
-
 	defer logInstance.Close()
 
 	r := chi.NewRouter()
 
 	loggerMiddleware := middleware.NewLoggerMiddleware(logInstance)
-	metrics := middleware.NewMetricsMiddleware("auth_service")
+	metrics := middleware.NewMetricsMiddleware(config.ServiceName)
 
 	// Настройки CORS
 	corsOptions := cors.Options{
@@ -73,23 +77,41 @@ func main() {
 	}
 	defer redisClient.Close()
 
-	// Запуск миграций если указан флаг
-	if *runMigrations {
-		logInstance.Infow("Запуск миграций...")
+	// Создаем менеджер миграций независимо от флагов,
+	// чтобы не дублировать код и иметь единую точку управления миграциями
+	migrationMgr, err := manager.NewMigrationManager(
+		postgresDB.GetConn(),
+		redisClient,
+		logInstance,
+		*migrationsPath,
+	)
+	if err != nil {
+		logInstance.Fatalw("Не удалось создать менеджер миграций", "error", err)
+	}
+	defer migrationMgr.Close()
 
-		// Создаем менеджер миграций
-		migrationMgr, err := manager.NewMigrationManager(postgresDB.GetConn(), redisClient, logInstance, "db/migrations")
-		if err != nil {
-			logInstance.Fatalw("Не удалось создать менеджер миграций", "error", err)
-		}
-		defer migrationMgr.Close()
-
-		// Запускаем миграции
+	// Обработка различных вариантов запуска миграций
+	switch {
+	case *runMigrations:
+		logInstance.Infow("Запуск всех миграций...")
 		if err := migrationMgr.MigrateUp(ctx); err != nil {
 			logInstance.Fatalw("Ошибка при применении миграций", "error", err)
 		}
-
 		logInstance.Infow("Миграции успешно применены")
+
+	case *runPostgresMigration:
+		logInstance.Infow("Запуск миграций PostgreSQL...")
+		if err := migrationMgr.MigratePostgresUp(); err != nil {
+			logInstance.Fatalw("Ошибка при применении миграций PostgreSQL", "error", err)
+		}
+		logInstance.Infow("Миграции PostgreSQL успешно применены")
+
+	case *runRedisMigration:
+		logInstance.Infow("Запуск миграций Redis...")
+		if err := migrationMgr.MigrateRedisUp(ctx); err != nil {
+			logInstance.Fatalw("Ошибка при применении миграций Redis", "error", err)
+		}
+		logInstance.Infow("Миграции Redis успешно применены")
 	}
 
 	// Создание репозиториев
