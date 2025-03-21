@@ -24,7 +24,6 @@ import (
 )
 
 func main() {
-	// Флаг для запуска миграций при старте приложения
 	var runMigrations = flag.Bool("migrate", false, "Запустить миграции при старте приложения")
 	flag.Parse()
 
