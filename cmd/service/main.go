@@ -95,7 +95,6 @@ func main() {
 		logInstance.Infow("Миграции успешно применены")
 	}
 
-	// Создание репозиториев
 	postgresRepo := postgres.NewPostgresRepository(postgresDB.GetConn(), redis.NewRedisRepository(redisClient, logInstance), logInstance)
 	redisRepo := redis.NewRedisRepository(redisClient, logInstance)
 	mainRepo := repository.NewRepository(postgresRepo, redisRepo, logInstance)
