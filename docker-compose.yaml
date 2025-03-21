@@ -2,6 +2,7 @@ services:
   auth-app:
     container_name: auth-app
     build: .
+    command: ["./auth-app", "-migrate"]
     ports:
       - "8080:8080"
     env_file:
@@ -78,9 +79,9 @@ services:
     container_name: prometheus
     restart: always
     environment:
-      - GRAFANA=${{ GRAFANA }}
+      - GRAFANA=${GRAFANA:-false}
     ports:
-      - "9092:9090"  # Используем 9091 для внешнего доступа, чтобы избежать конфликта портов
+      - "9092:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - ./alerts_rules.yml:/etc/prometheus/alerts_rules.yml
@@ -90,7 +91,10 @@ services:
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
-      - '--enable-feature=remote-write-receiver'  # Включаем возможность получать remote_write запросы
+      - '--enable-feature=remote-write-receiver'
+    # Добавляем extra_hosts для доступа к хосту
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - monitoring-network
 

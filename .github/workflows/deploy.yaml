@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4  # клонирование репозитория (без .env, он в .gitignore)
+      - uses: actions/checkout@v4
 
       - name: Copy files to server
         uses: appleboy/scp-action@master
@@ -20,18 +20,7 @@ jobs:
           source: "."
           target: "~/auth-deploy"
 
-      # вот новый шаг, создающий .env на сервере!
-      - name: Create .env file on server (automatic from GitHub Secret)
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            echo "${{ secrets.ENV_FILE_CONTENTS }}" > ~/auth-deploy/.env
-            chmod 600 ~/auth-deploy/.env
-
-      - name: Deploy on server via SSH
+      - name: Deploy on server
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -39,12 +28,126 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ~/auth-deploy
+            
+            # Create .env file
+            echo "${{ secrets.ENV_FILE_CONTENTS }}" > .env
+            chmod 600 .env
+            
+            # Stop all running containers
             docker compose down
+            
+            # Build the containers
             docker compose build
+            
+            # Modify docker-compose.yaml temporarily to remove port binding during migration
+            sed -i.bak 's/- "8080:8080"/# - "8080:8080"/' docker-compose.yaml
+            
+            # Run a separate container only for migrations
+            docker compose run --rm auth-app ./auth-app -migrate || true
+            
+            # Restore the original docker-compose file
+            mv docker-compose.yaml.bak docker-compose.yaml
+            
+            # Ensure Prometheus can access both container and host metrics
+            # Create a new prometheus.yml file if needed
+            if ! grep -q "auth_service_server" prometheus.yml; then
+              # Backup original prometheus.yml
+              cp prometheus.yml prometheus.yml.bak
+            
+              # Создаем новый файл prometheus.yml
+              echo "# prometheus.yml для отправки метрик в Grafana Cloud" > prometheus.yml
+              echo "global:" >> prometheus.yml
+              echo "  scrape_interval: 15s" >> prometheus.yml
+              echo "  evaluation_interval: 15s" >> prometheus.yml
+              echo "" >> prometheus.yml
+              echo "# Настройка удаленной записи в Grafana Cloud" >> prometheus.yml
+              echo "remote_write:" >> prometheus.yml
+              echo "  - url: https://prometheus-prod-36-prod-us-west-0.grafana.net/api/prom/push" >> prometheus.yml
+              echo "    basic_auth:" >> prometheus.yml
+              echo "      username: 2335073" >> prometheus.yml
+              echo "      password: glc_eyJvIjoiMTM4MTQ0MyIsIm4iOiJwZGMtdGVhbWVtYWlscHJhYy1kZWZhdWx0LWF1dGhzZXJ2aWNlIiwiayI6IllBOWc3NkZTMTRqQjdydUpNMTdaZEE5MSIsIm0iOnsiciI6InByb2QtdXMtd2VzdC0wIn19" >> prometheus.yml
+              echo "" >> prometheus.yml
+              echo "# Правила алертинга" >> prometheus.yml
+              echo "rule_files:" >> prometheus.yml
+              echo "  - \"alerts_rules.yml\"" >> prometheus.yml
+              echo "" >> prometheus.yml
+              echo "scrape_configs:" >> prometheus.yml
+              echo "  # Мониторинг локального сервиса авторизации в контейнере Docker Compose" >> prometheus.yml
+              echo "  - job_name: 'auth_service_container'" >> prometheus.yml
+              echo "    metrics_path: '/metrics'" >> prometheus.yml
+              echo "    scrape_interval: 5s" >> prometheus.yml
+              echo "    static_configs:" >> prometheus.yml
+              echo "      - targets: ['auth-app:8080']" >> prometheus.yml
+              echo "    relabel_configs:" >> prometheus.yml
+              echo "      - source_labels: [__address__]" >> prometheus.yml
+              echo "        target_label: instance" >> prometheus.yml
+              echo "        replacement: 'auth-app:8080'" >> prometheus.yml
+              echo "      - source_labels: []" >> prometheus.yml
+              echo "        target_label: service" >> prometheus.yml
+              echo "        replacement: 'auth-service-container'" >> prometheus.yml
+              echo "      - source_labels: []" >> prometheus.yml
+              echo "        target_label: environment" >> prometheus.yml
+              echo "        replacement: 'docker'" >> prometheus.yml
+              echo "" >> prometheus.yml
+              echo "  # Мониторинг сервиса авторизации на реальном сервере" >> prometheus.yml
+              echo "  - job_name: 'auth_service_server'" >> prometheus.yml
+              echo "    metrics_path: '/metrics'" >> prometheus.yml
+              echo "    scrape_interval: 5s" >> prometheus.yml
+              echo "    static_configs:" >> prometheus.yml
+              echo "      - targets: ['host.docker.internal:8080']" >> prometheus.yml
+              echo "    relabel_configs:" >> prometheus.yml
+              echo "      - source_labels: [__address__]" >> prometheus.yml
+              echo "        target_label: instance" >> prometheus.yml
+              echo "        replacement: 'server:8080'" >> prometheus.yml
+              echo "      - source_labels: []" >> prometheus.yml
+              echo "        target_label: service" >> prometheus.yml
+              echo "        replacement: 'auth-service-server'" >> prometheus.yml
+              echo "      - source_labels: []" >> prometheus.yml
+              echo "        target_label: environment" >> prometheus.yml
+              echo "        replacement: 'production'" >> prometheus.yml
+              echo "" >> prometheus.yml
+              echo "  # Мониторинг внешнего сервера" >> prometheus.yml
+              echo "  - job_name: 'external_server'" >> prometheus.yml
+              echo "    metrics_path: '/metrics'" >> prometheus.yml
+              echo "    scrape_interval: 10s" >> prometheus.yml
+              echo "    static_configs:" >> prometheus.yml
+              echo "      - targets: ['194.87.95.28:8080']" >> prometheus.yml
+              echo "    relabel_configs:" >> prometheus.yml
+              echo "      - source_labels: [__address__]" >> prometheus.yml
+              echo "        target_label: instance" >> prometheus.yml
+              echo "      - source_labels: []" >> prometheus.yml
+              echo "        target_label: service" >> prometheus.yml
+              echo "        replacement: 'external-server'" >> prometheus.yml
+              echo "" >> prometheus.yml
+              echo "  # Redis Exporter для мониторинга Redis" >> prometheus.yml
+              echo "  - job_name: 'redis_exporter'" >> prometheus.yml
+              echo "    static_configs:" >> prometheus.yml
+              echo "      - targets: ['redis-exporter:9121']" >> prometheus.yml
+              echo "    relabel_configs:" >> prometheus.yml
+              echo "      - source_labels: [__address__]" >> prometheus.yml
+              echo "        target_label: instance" >> prometheus.yml
+              echo "      - source_labels: []" >> prometheus.yml
+              echo "        target_label: service" >> prometheus.yml
+              echo "        replacement: 'redis'" >> prometheus.yml
+              echo "" >> prometheus.yml
+              echo "  # PostgreSQL Exporter для мониторинга PostgreSQL" >> prometheus.yml
+              echo "  - job_name: 'postgres_exporter'" >> prometheus.yml
+              echo "    static_configs:" >> prometheus.yml
+              echo "      - targets: ['postgres-exporter:9187']" >> prometheus.yml
+              echo "    relabel_configs:" >> prometheus.yml
+              echo "      - source_labels: [__address__]" >> prometheus.yml
+              echo "        target_label: instance" >> prometheus.yml
+              echo "      - source_labels: []" >> prometheus.yml
+              echo "        target_label: service" >> prometheus.yml
+              echo "        replacement: 'postgres'" >> prometheus.yml
+            fi
+            
+            # Start all containers normally
             docker compose up -d
             
-            # миграция БД при необходимости:
-            migrate -path ./db/migrations -database "$(grep DATABASE_DSN .env | cut -d '=' -f2-)" up
-
-            # перезапустить systemd сервис, если используется
+            # Check the status
+            sleep 5
+            docker compose ps
+            
+            # Restart systemd service if needed
             sudo systemctl restart auth || true

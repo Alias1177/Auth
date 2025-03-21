@@ -14,8 +14,41 @@ remote_write:
 rule_files:
   - "alerts_rules.yml"
 
-
 scrape_configs:
+  # Мониторинг локального сервиса авторизации в контейнере Docker Compose
+  - job_name: 'auth_service_container'
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['auth-app:8080']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'auth-app:8080'
+      - source_labels: []
+        target_label: service
+        replacement: 'auth-service-container'
+      - source_labels: []
+        target_label: environment
+        replacement: 'docker'
+
+  # Мониторинг сервиса авторизации на реальном сервере
+  - job_name: 'auth_service_server'
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['host.docker.internal:8080']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'server:8080'
+      - source_labels: []
+        target_label: service
+        replacement: 'auth-service-server'
+      - source_labels: []
+        target_label: environment
+        replacement: 'production'
+
   # Мониторинг внешнего сервера
   - job_name: 'external_server'
     metrics_path: '/metrics'
@@ -28,19 +61,6 @@ scrape_configs:
       - source_labels: []
         target_label: service
         replacement: 'external-server'
-
-  # Мониторинг сервиса авторизации
-  - job_name: 'auth_service'
-    metrics_path: '/metrics'
-    scrape_interval: 5s
-    static_configs:
-      - targets: ['auth-app:8080']
-    relabel_configs:
-      - source_labels: [__address__]
-        target_label: instance
-      - source_labels: []
-        target_label: service
-        replacement: 'auth-service'
 
   # Redis Exporter для мониторинга Redis
   - job_name: 'redis_exporter'
