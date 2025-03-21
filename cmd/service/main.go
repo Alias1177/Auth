@@ -104,19 +104,17 @@ func main() {
 	authHandler := auth.NewAuthHandler(tokenManager, cfg.JWT, mainRepo, logInstance)
 	registrationHandler := registration.NewRegistrationHandler(mainRepo, tokenManager, cfg.JWT, logInstance)
 	userHandler := user.NewUserHandler(mainRepo, logInstance)
-	userGet := user.NewUserHandler(mainRepo, logInstance)
 
 	// Базовые middleware
 	r.Use(cors.Handler(corsOptions))
 	r.Use(loggerMiddleware.Handler)
 	r.Use(metrics.Middleware) // Применяем метрики ко всем запросам
 
-	// Эндпоинт для метрик
-	// Отдельно устанавливаем путь для метрик (важно!)
+	// Эндпоинт для метрик - всегда используем PathMiddleware для правильного определения маршрута
 	r.With(middleware.PathMiddleware("/metrics")).
 		Handle("/metrics", promhttp.Handler())
 
-	// Аутентификация и регистрация
+	// Аутентификация и регистрация - с явным указанием путей
 	r.With(middleware.PathMiddleware("/login")).
 		Post("/login", authHandler.Login)
 
@@ -132,7 +130,7 @@ func main() {
 			Put("/{id}", userHandler.UpdateUser)
 
 		r.With(middleware.PathMiddleware("/user/me")).
-			Get("/me", userGet.GetUserInfoHandler)
+			Get("/me", userHandler.GetUserInfoHandler)
 	})
 
 	// Запуск сервера

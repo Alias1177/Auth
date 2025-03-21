@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"fmt"
 	"github.com/go-chi/chi/v5"
 	"net/http"
 	"strconv"
@@ -44,7 +43,7 @@ func NewMetricsMiddleware(serviceName string) *MetricsMiddleware {
 		// Метрика для подсчёта HTTP кодов ответа по эндпоинтам
 		httpCodes := promauto.NewCounterVec(
 			prometheus.CounterOpts{
-				Name: serviceName + "_http_response_codes_total_v2",
+				Name: serviceName + "_http_response_codes_total",
 				Help: "Количество HTTP-ответов по кодам",
 			},
 			[]string{"code", "method", "path"},
@@ -53,7 +52,7 @@ func NewMetricsMiddleware(serviceName string) *MetricsMiddleware {
 		// Гистограмма для времени ответа
 		responseTime := promauto.NewHistogramVec(
 			prometheus.HistogramOpts{
-				Name:    serviceName + "_http_response_time_seconds_v2",
+				Name:    serviceName + "_http_response_time_seconds",
 				Help:    "Время ответа HTTP-запросов",
 				Buckets: prometheus.DefBuckets,
 			},
@@ -63,7 +62,7 @@ func NewMetricsMiddleware(serviceName string) *MetricsMiddleware {
 		// Остальные метрики...
 		responseTimeSummary := promauto.NewSummaryVec(
 			prometheus.SummaryOpts{
-				Name:       serviceName + "_http_response_time_avg_seconds_v2",
+				Name:       serviceName + "_http_response_time_avg_seconds",
 				Help:       "Среднее время ответа HTTP-запросов",
 				MaxAge:     10 * time.Minute,
 				Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
@@ -73,7 +72,7 @@ func NewMetricsMiddleware(serviceName string) *MetricsMiddleware {
 
 		responseTimeP95 := promauto.NewSummaryVec(
 			prometheus.SummaryOpts{
-				Name:       serviceName + "_http_response_time_p95_seconds_v2",
+				Name:       serviceName + "_http_response_time_p95_seconds",
 				Help:       "95-й процентиль времени ответа HTTP-запросов",
 				MaxAge:     10 * time.Minute,
 				Objectives: map[float64]float64{0.95: 0.01},
@@ -83,7 +82,7 @@ func NewMetricsMiddleware(serviceName string) *MetricsMiddleware {
 
 		activeRequests := promauto.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: serviceName + "_http_active_requests_v2",
+				Name: serviceName + "_http_active_requests",
 				Help: "Количество активных HTTP-запросов",
 			},
 			[]string{"method", "path"},
@@ -117,9 +116,6 @@ func (m *MetricsMiddleware) RecordPathForRequest(r *http.Request, path string) {
 
 	// Сохраняем путь для этого запроса
 	m.pathCache[r] = path
-
-	// Выводим отладочную информацию
-	fmt.Printf("УСТАНОВЛЕН ПУТЬ ДЛЯ ЗАПРОСА: %s -> %s\n", r.URL.Path, path)
 }
 
 // getPathForRequest получает установленный путь для запроса
@@ -138,34 +134,8 @@ func (m *MetricsMiddleware) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		// Пытаемся получить предустановленный путь из кэша
-		path := m.getPathForRequest(r)
-		fmt.Printf("Пытаемся получить путь из кэша: %s\n", path)
-
-		// Если путь не установлен в кэше, используем другие методы
-		if path == "" {
-			// Явно установленный путь в контексте
-			pathFromCtx, ok := r.Context().Value(PathKey).(string)
-			if ok && pathFromCtx != "" {
-				path = pathFromCtx
-				fmt.Printf("Получили путь из контекста: %s\n", path)
-			} else {
-				// Пробуем получить из Chi
-				routeCtx := chi.RouteContext(r.Context())
-				if routeCtx != nil && routeCtx.RoutePattern() != "" {
-					path = routeCtx.RoutePattern()
-					fmt.Printf("Получили путь из Chi: %s\n", path)
-				} else {
-					// Используем фактический путь запроса
-					path = r.URL.Path
-					fmt.Printf("Используем путь URL: %s\n", path)
-				}
-			}
-		}
-
-		// ВАЖНО: используем жестко заданное значение для отладки
-		path = "EXPLICIT_PATH_DEBUG"
-		fmt.Printf("ФИНАЛЬНЫЙ ПУТЬ: %s\n", path)
+		// Определение пути запроса для метрик - важная часть, которую нужно исправить
+		path := m.determineRequestPath(r)
 
 		// Увеличиваем счетчик активных запросов
 		m.activeRequests.WithLabelValues(r.Method, path).Inc()
@@ -216,10 +186,42 @@ func (m *MetricsMiddleware) Middleware(next http.Handler) http.Handler {
 
 		// Сохраняем статистику в локальной карте для быстрого доступа
 		m.mutex.Lock()
-		m.codeCount[fmt.Sprintf("%s-%s-%s", statusCodeStr, r.Method, path)]++
+		m.codeCount[statusCodeStr+"-"+r.Method+"-"+path]++
 		m.codeCount[statusGroup]++
 		m.mutex.Unlock()
 	})
+}
+
+// determineRequestPath определяет путь запроса для метрик следующим образом:
+// 1. Сначала проверяет кэш предустановленных путей
+// 2. Затем проверяет контекст запроса на наличие ключа пути
+// 3. Далее пытается получить путь из Chi роутера
+// 4. В качестве последнего варианта использует фактический URL-путь
+func (m *MetricsMiddleware) determineRequestPath(r *http.Request) string {
+	// 1. Проверяем кэш предустановленных путей
+	path := m.getPathForRequest(r)
+	if path != "" {
+		return path
+	}
+
+	// 2. Проверяем явно установленный путь в контексте
+	if pathFromCtx, ok := r.Context().Value(PathKey).(string); ok && pathFromCtx != "" {
+		return pathFromCtx
+	}
+
+	// 3. Пробуем получить из Chi роутера
+	routeCtx := chi.RouteContext(r.Context())
+	if routeCtx != nil && routeCtx.RoutePattern() != "" {
+		return routeCtx.RoutePattern()
+	}
+
+	// 4. В крайнем случае, используем фактический путь запроса
+	if r.URL != nil && r.URL.Path != "" {
+		return r.URL.Path
+	}
+
+	// 5. Если всё вышеуказанное не дало результата, используем "unknown"
+	return "пиздец"
 }
 
 // PrintStats выводит текущую статистику по кодам
