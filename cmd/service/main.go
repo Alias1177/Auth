@@ -31,7 +31,7 @@ func main() {
 
 	logInstance, err := logger.NewSimpleLogger("info")
 	if err != nil {
-		log.Fatal("Failed to initialize logger:", err)
+		log.Fatal("Failed to initialize logger :", err)
 	}
 
 	defer logInstance.Close()
@@ -61,7 +61,7 @@ func main() {
 	// Подключение к PostgreSQL
 	postgresDB, err := connect.NewPostgresDB(ctx, cfg.Database.DSN)
 	if err != nil {
-		logInstance.Fatalw("Failed to connect PostgreSQL", "error", err)
+		logInstance.Fatalw("Failed to connect PostgreSQL:", "error", err)
 	}
 	defer postgresDB.Close()
 
