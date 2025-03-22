@@ -18,14 +18,14 @@ scrape_configs:
   # Мониторинг самого Prometheus
   - job_name: 'prometheus'
     static_configs:
-      - targets: ['localhost:9090']
+      - targets: ['localhost:9092']
 
   # Мониторинг сервиса авторизации
   - job_name: 'auth_service'
     metrics_path: '/metrics'
     scrape_interval: 5s  # Более частый опрос для сервиса авторизации
     static_configs:
-      - targets: ['auth-service:8080']
+      - targets: ['auth-app:8080']
 
     # Добавляем метки для сервиса
     relabel_configs:
@@ -34,11 +34,6 @@ scrape_configs:
       - source_labels: []
         target_label: service
         replacement: 'auth-service'
-
-  # Node Exporter для мониторинга хоста
-  - job_name: 'node_exporter'
-    static_configs:
-      - targets: ['node-exporter:9100']
 
   # Redis Exporter для мониторинга Redis
   - job_name: 'redis_exporter'

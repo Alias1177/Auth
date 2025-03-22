@@ -49,12 +49,20 @@ services:
     container_name: prometheus
     restart: always
     ports:
-      - "9092:9090"
+      - "9092:9090"  # Открываем порт для доступа извне
     volumes:
       - "./prometheus.yml:/etc/prometheus/prometheus.yml"
+      - "./alerts_rules.yml:/etc/prometheus/alert_rules.yml"
+      - prometheus_data:/prometheus
     depends_on:
+      - auth-app
       - postgres
       - redis
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
 
   grafana:
     image: grafana/grafana:latest
@@ -62,10 +70,37 @@ services:
     restart: always
     ports:
       - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=ochenslozhniyparol
+      - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       - prometheus
+
+  # Экспортер PostgreSQL для мониторинга
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://admin:secret@postgres:5432/mydb?sslmode=disable"
+    ports:
+      - "9187:9187"
+    restart: always
+    depends_on:
+      - postgres
+
+  # Экспортер Redis для мониторинга
+  redis-exporter:
+    image: oliver006/redis_exporter
+    environment:
+      REDIS_ADDR: redis:6379
+    ports:
+      - "9121:9121"
+    restart: always
+    depends_on:
+      - redis
 
   # Zookeeper service
   zookeeper:
@@ -104,3 +139,4 @@ volumes:
   postgres_data:
   redis_data:
   grafana_data:
+  prometheus_data:
