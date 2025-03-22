@@ -73,3 +73,26 @@ groups:
         annotations:
           summary: "Высокое количество подключений к PostgreSQL"
           description: "Более 100 активных подключений к PostgreSQL в течение 5 минут"
+
+    groups:
+      - name: disk_alerts
+        rules:
+          # Предупреждение, когда диск заполнен на 80%
+          - alert: DiskSpaceFilling
+            expr: 100 - ((node_filesystem_avail_bytes * 100) / node_filesystem_size_bytes) > 80
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Диск заполнен более чем на 80%"
+              description: "Диск {{ $labels.mountpoint }} на {{ $labels.instance }} заполнен на {{ $value }}%."
+
+          # Критическое предупреждение, когда диск заполнен на 90%
+          - alert: DiskSpaceCritical
+            expr: 100 - ((node_filesystem_avail_bytes * 100) / node_filesystem_size_bytes) > 90
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Критическое заполнение диска!"
+              description: "Диск {{ $labels.mountpoint }} на {{ $labels.instance }} заполнен на {{ $value }}%."
