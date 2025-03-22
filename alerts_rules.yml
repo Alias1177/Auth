@@ -74,7 +74,6 @@ groups:
           summary: "Высокое количество подключений к PostgreSQL"
           description: "Более 100 активных подключений к PostgreSQL в течение 5 минут"
 
-    groups:
       - name: disk_alerts
         rules:
           # Предупреждение, когда диск заполнен на 80%
