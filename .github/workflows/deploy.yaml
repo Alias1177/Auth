@@ -34,26 +34,26 @@ jobs:
             chmod 600 .env
             
             # Stop all running containers
-            docker compose down
+            docker compose -f docker-compose.yaml -f docker-compose-loki.yaml down
             
             # Build the containers
-            docker compose build
+            docker compose -f docker-compose.yaml -f docker-compose-loki.yaml build
             
             # Modify docker-compose.yaml temporarily to remove port binding during migration
             sed -i.bak 's/- "8080:8080"/# - "8080:8080"/' docker-compose.yaml
             
             # Run a separate container only for migrations
-            docker compose run --rm auth-app ./auth-app -migrate || true
+            docker compose -f docker-compose.yaml run --rm auth-app ./auth-app -migrate || true
             
             # Restore the original docker-compose file
             mv docker-compose.yaml.bak docker-compose.yaml
             
             # Start all containers normally
-            docker compose up -d
+            docker compose -f docker-compose.yaml -f docker-compose-loki.yaml up -d
             
             # Check the status
             sleep 5
-            docker compose ps
+            docker compose -f docker-compose.yaml -f docker-compose-loki.yaml ps
             
             # Restart systemd service if needed
             sudo systemctl restart auth || true
