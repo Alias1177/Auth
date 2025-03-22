@@ -1,0 +1,14 @@
+apiVersion: 1
+
+providers:
+  # <string> название этого dash-board провайдера. Обязательно. У всех провайдеров должно быть уникальное имя
+  - name: 'default'
+    # <int> org id. По умолчанию 1
+    orgId: 1
+    # <string, required> name of the dashboard folder. Default is the provider name
+    folder: 'Auth Service Dashboards'
+    # <string> путь к каталогу с файлами дашбордов (json)
+    type: file
+    options:
+      # <string, required> путь к каталогу с файлами дашбордов. Обязательно
+      path: /var/lib/grafana/dashboards
