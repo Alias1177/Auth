@@ -60,3 +60,12 @@ scrape_configs:
       - source_labels: []
         target_label: service
         replacement: 'postgres'
+
+  # Мониторинг хоста с помощью Node Exporter
+  - job_name: 'node'
+    static_configs:
+      - targets: [ 'localhost:9100' ]
+    relabel_configs:
+      - source_labels: [ __address__ ]
+        target_label: instance
+        replacement: 'host-system'
