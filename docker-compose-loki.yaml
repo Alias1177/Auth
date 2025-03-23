@@ -6,6 +6,7 @@ services:
     ports:
       - "3100:3100"
     volumes:
+      - ./loki-config.yaml:/etc/loki/config.yaml
       - loki_data:/loki
     command: -config.file=/etc/loki/local-config.yaml
     healthcheck:

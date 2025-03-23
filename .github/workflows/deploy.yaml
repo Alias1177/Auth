@@ -18,7 +18,21 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "."
-          target: "~/auth-deploy"
+          target: "/opt/auth-service/Auth"
+
+      - name: Check Docker installation
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /opt/auth-service/Auth
+            
+            # Проверка версии Docker и Docker Compose
+            docker --version
+            which docker-compose || echo "docker-compose not found"
+            docker compose version || echo "docker compose not found"
 
       - name: Deploy on server
         uses: appleboy/ssh-action@master
@@ -27,33 +41,63 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd ~/auth-deploy
+            cd /opt/auth-service/Auth
             
             # Create .env file
             echo "${{ secrets.ENV_FILE_CONTENTS }}" > .env
             chmod 600 .env
             
-            # Stop all running containers
-            docker compose -f docker-compose.yaml -f docker-compose-loki.yaml down
+            # Проверяем существование файлов docker-compose
+            if [ ! -f "docker-compose.yaml" ]; then
+              echo "docker-compose.yaml not found!"
+              ls -la
+              exit 1
+            fi
             
-            # Build the containers
-            docker compose -f docker-compose.yaml -f docker-compose-loki.yaml build
+            # Используем docker-compose вместо docker compose, если доступен
+            if command -v docker-compose &> /dev/null; then
+              # Stop all running containers
+              docker-compose -f docker-compose.yaml -f docker-compose-loki.yaml down
             
-            # Modify docker-compose.yaml temporarily to remove port binding during migration
-            sed -i.bak 's/- "8080:8080"/# - "8080:8080"/' docker-compose.yaml
+              # Build the containers
+              docker-compose -f docker-compose.yaml -f docker-compose-loki.yaml build
             
-            # Run a separate container only for migrations
-            docker compose -f docker-compose.yaml run --rm auth-app ./auth-app -migrate || true
+              # Modify docker-compose.yaml temporarily
+              sed -i.bak 's/- "8080:8080"/# - "8080:8080"/' docker-compose.yaml
             
-            # Restore the original docker-compose file
-            mv docker-compose.yaml.bak docker-compose.yaml
+              # Run migrations
+              docker-compose -f docker-compose.yaml run --rm auth-app ./auth-app -migrate || true
             
-            # Start all containers normally
-            docker compose -f docker-compose.yaml -f docker-compose-loki.yaml up -d
+              # Restore the original file
+              mv docker-compose.yaml.bak docker-compose.yaml
             
-            # Check the status
-            sleep 5
-            docker compose -f docker-compose.yaml -f docker-compose-loki.yaml ps
+              # Start containers
+              docker-compose -f docker-compose.yaml -f docker-compose-loki.yaml up -d
             
-            # Restart systemd service if needed
-            sudo systemctl restart auth || true
+              # Check status
+              sleep 5
+              docker-compose -f docker-compose.yaml -f docker-compose-loki.yaml ps
+            else
+              # Попытаемся использовать docker compose (новый синтаксис)
+              # Stop all running containers
+              docker compose -f docker-compose.yaml -f docker-compose-loki.yaml down
+            
+              # Build the containers
+              docker compose -f docker-compose.yaml -f docker-compose-loki.yaml build
+            
+              # Modify docker-compose.yaml temporarily
+              sed -i.bak 's/- "8080:8080"/# - "8080:8080"/' docker-compose.yaml
+            
+              # Run migrations
+              docker compose -f docker-compose.yaml run --rm auth-app ./auth-app -migrate || true
+            
+              # Restore the original file
+              mv docker-compose.yaml.bak docker-compose.yaml
+            
+              # Start containers
+              docker compose -f docker-compose.yaml -f docker-compose-loki.yaml up -d
+            
+              # Check status
+              sleep 5
+              docker compose -f docker-compose.yaml -f docker-compose-loki.yaml ps
+            fi
