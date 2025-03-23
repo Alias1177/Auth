@@ -64,7 +64,7 @@ scrape_configs:
   # Мониторинг хоста с помощью Node Exporter
   - job_name: 'node'
     static_configs:
-      - targets: [ 'localhost:9100' ]
+      - targets: [ 'node-exporter:9100' ]
     relabel_configs:
       - source_labels: [ __address__ ]
         target_label: instance
