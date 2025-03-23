@@ -18,7 +18,7 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "."
-          target: "~/auth-deploy"
+          target: "/opt/auth-service/Auth"
 
       - name: Deploy on server
         uses: appleboy/ssh-action@master
