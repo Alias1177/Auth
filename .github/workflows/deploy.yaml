@@ -27,7 +27,7 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd ~/opt/auth-service/Auth
+            cd /opt/auth-service/Auth
             
             # Create .env file
             echo "${{ secrets.ENV_FILE_CONTENTS }}" > .env
