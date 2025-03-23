@@ -63,6 +63,8 @@ services:
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
+    extra_hosts:
+      - "node-exporter:194.87.95.28"
 
   grafana:
     image: grafana/grafana:latest
@@ -150,7 +152,7 @@ services:
       - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
     ports:
       - "9100:9100"
-    network_mode: host  # для доступа ко всем метрикам хоста
+#    network_mode: host  # для доступа ко всем метрикам хоста
     logging:
       driver: "json-file"
       options:
