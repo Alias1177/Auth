@@ -5,7 +5,7 @@ global:
 
 # Правила алертинга
 rule_files:
-  - "alert_rules.yml"
+  - "alerts_rules.yml"
 
 # Конфигурация алертменеджера
 alerting:
