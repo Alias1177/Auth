@@ -11,6 +11,7 @@ import (
 	"Auth/internal/repository"
 	"Auth/internal/repository/postgres"
 	"Auth/internal/repository/redis"
+	"Auth/pkg/appcontext"
 	"Auth/pkg/jwt"
 	"Auth/pkg/kafka"
 	"Auth/pkg/logger"
@@ -31,9 +32,8 @@ func main() {
 
 	logInstance, err := logger.NewSimpleLogger("info")
 	if err != nil {
-		log.Fatal("Failed to initialize logger :", err)
+		log.Fatal("Failed to initialize logger:", err)
 	}
-
 	defer logInstance.Close()
 
 	r := chi.NewRouter()
@@ -63,14 +63,21 @@ func main() {
 	if err != nil {
 		logInstance.Fatalw("Failed to connect PostgreSQL:", "error", err)
 	}
-	defer postgresDB.Close()
 
 	// Подключение к Redis
 	redisClient := config.NewRedisClient(cfg.Redis)
 	if _, err := redisClient.Ping(ctx).Result(); err != nil {
 		logInstance.Fatalw("Failed to connect Redis", "error", err)
+		postgresDB.Close() // Закрываем PostgreSQL, если Redis не доступен
+		return
 	}
-	defer redisClient.Close()
+
+	// Устанавливаем глобальный контекст БД
+	appcontext.SetInstance(postgresDB, redisClient)
+
+	// Получаем контекст БД и настраиваем отложенное закрытие соединений
+	dbContext := appcontext.GetInstance()
+	defer dbContext.Close()
 
 	// Инициализация Kafka Producer
 	kafkaProducer := kafka.NewProducer(cfg.Kafka.BrokerAddress, cfg.Kafka.EmailTopic, logInstance)
@@ -81,7 +88,12 @@ func main() {
 		logInstance.Infow("Запуск миграций...")
 
 		// Создаем менеджер миграций
-		migrationMgr, err := manager.NewMigrationManager(postgresDB.GetConn(), redisClient, logInstance, "db/migrations")
+		migrationMgr, err := manager.NewMigrationManager(
+			dbContext.PostgresDB.GetConn(),
+			dbContext.RedisClient,
+			logInstance,
+			"db/migrations",
+		)
 		if err != nil {
 			logInstance.Fatalw("Не удалось создать менеджер миграций", "error", err)
 		}
@@ -95,8 +107,12 @@ func main() {
 		logInstance.Infow("Миграции успешно применены")
 	}
 
-	postgresRepo := postgres.NewPostgresRepository(postgresDB.GetConn(), redis.NewRedisRepository(redisClient, logInstance), logInstance)
-	redisRepo := redis.NewRedisRepository(redisClient, logInstance)
+	postgresRepo := postgres.NewPostgresRepository(
+		dbContext.PostgresDB.GetConn(),
+		redis.NewRedisRepository(dbContext.RedisClient, logInstance),
+		logInstance,
+	)
+	redisRepo := redis.NewRedisRepository(dbContext.RedisClient, logInstance)
 	mainRepo := repository.NewRepository(postgresRepo, redisRepo, logInstance)
 
 	// JWT Token Manager
@@ -105,7 +121,6 @@ func main() {
 	// Инициализация хэндлеров
 	authHandler := auth.NewAuthHandler(tokenManager, cfg.JWT, mainRepo, logInstance)
 	registrationHandler := registration.NewRegistrationHandler(mainRepo, tokenManager, cfg.JWT, logInstance, kafkaProducer)
-
 	userHandler := user.NewUserHandler(mainRepo, logInstance)
 	userGet := user.NewUserHandler(mainRepo, logInstance)
 
