@@ -52,6 +52,7 @@ func main() {
 		MaxAge:           300,
 	}))
 
+	// Загрузка конфига
 	cfg, err := config.Load(".env")
 	if err != nil {
 		log.Fatal("Failed to load config:", err)
