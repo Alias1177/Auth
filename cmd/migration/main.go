@@ -30,7 +30,6 @@ func main() {
 	}
 	defer logInstance.Close()
 
-	// Загрузка конфигурации
 	cfg, err := config.Load(".env")
 	if err != nil {
 		logInstance.Fatalw("Failed to load config:", "error", err)
