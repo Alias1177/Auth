@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS userslog (
+CREATE TABLE IF NOT EXISTS UsersLog (
                                         id SERIAL PRIMARY KEY,
                                         username VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -11,11 +11,11 @@ CREATE TABLE IF NOT EXISTS userslog (
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_userslog_email') THEN
-CREATE INDEX idx_userslog_email ON userslog(email);
+CREATE INDEX idx_UsersLog_email ON UsersLog(email);
 END IF;
 
     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_userslog_username') THEN
-CREATE INDEX idx_userslog_username ON userslog(username);
+CREATE INDEX idx_UsersLog_username ON UsersLog(username);
 END IF;
 END
 $$;

@@ -1,2 +1,2 @@
-DROP TABLE IF EXISTS userslog;
+DROP TABLE IF EXISTS UsersLog;
 
