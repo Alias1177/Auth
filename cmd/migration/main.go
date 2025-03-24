@@ -4,6 +4,7 @@ import (
 	"Auth/config"
 	"Auth/db/migrations/manager"
 	"Auth/internal/infrastructure/postgres/connect"
+	"Auth/pkg/appcontext"
 	"Auth/pkg/logger"
 	"context"
 	"flag"
@@ -30,27 +31,51 @@ func main() {
 	}
 	defer logInstance.Close()
 
-	cfg, err := config.Load(".env")
-	if err != nil {
-		logInstance.Fatalw("Failed to load config:", "error", err)
+	// Проверяем, существуют ли уже установленные соединения с БД
+	dbContext := appcontext.GetInstance()
+
+	// Если соединения нет, создаем новое
+	if dbContext == nil {
+		logInstance.Infow("Подключения к БД отсутствуют, устанавливаем новые...")
+
+		cfg, err := config.Load(".env")
+		if err != nil {
+			logInstance.Fatalw("Failed to load config:", "error", err)
+		}
+
+		// Подключение к PostgreSQL
+		postgresDB, err := connect.NewPostgresDB(ctx, cfg.Database.DSN)
+		if err != nil {
+			logInstance.Fatalw("Failed to connect PostgreSQL:", "error", err)
+		}
+
+		// Подключение к Redis
+		redisClient := config.NewRedisClient(cfg.Redis)
+		if _, err := redisClient.Ping(ctx).Result(); err != nil {
+			logInstance.Fatalw("Failed to connect Redis", "error", err)
+			postgresDB.Close()
+			return
+		}
+
+		// Устанавливаем глобальный контекст БД
+		appcontext.SetInstance(postgresDB, redisClient)
+		dbContext = appcontext.GetInstance()
+	} else {
+		logInstance.Infow("Используем существующие подключения к БД")
 	}
 
-	// Подключение к PostgreSQL
-	postgresDB, err := connect.NewPostgresDB(ctx, cfg.Database.DSN)
-	if err != nil {
-		logInstance.Fatalw("Failed to connect PostgreSQL:", "error", err)
+	// Настраиваем отложенное закрытие соединений, только если мы их создали в этом процессе
+	if dbContext != nil && appcontext.GetInstance() == dbContext {
+		defer dbContext.Close()
 	}
-	defer postgresDB.Close()
-
-	// Подключение к Redis
-	redisClient := config.NewRedisClient(cfg.Redis)
-	if _, err := redisClient.Ping(ctx).Result(); err != nil {
-		logInstance.Fatalw("Failed to connect Redis", "error", err)
-	}
-	defer redisClient.Close()
 
 	// Инициализация менеджера миграций
-	migrationMgr, err := manager.NewMigrationManager(postgresDB.GetConn(), redisClient, logInstance, *migrationsPath)
+	migrationMgr, err := manager.NewMigrationManager(
+		dbContext.PostgresDB.GetConn(),
+		dbContext.RedisClient,
+		logInstance,
+		*migrationsPath,
+	)
 	if err != nil {
 		logInstance.Fatalw("Failed to create migration manager", "error", err)
 	}
