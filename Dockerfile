@@ -27,7 +27,7 @@ COPY --from=builder /app/cmd/service/auth-app ./auth-app
 COPY .env .env
 
 # 🚨 Нужна следующая строка:
-COPY db/migrations db/migrations
+COPY db/migrations /app/db/migrations
 
 # Указываем открываемый порт приложения (порт, на котором слушает Go-сервер)
 EXPOSE 8080
