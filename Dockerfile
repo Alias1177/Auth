@@ -18,6 +18,9 @@ RUN cd cmd/service && CGO_ENABLED=0 go build -ldflags "-s -w" -o auth-app
 # Этап 2: Запуск приложения в минимальном контейнере
 FROM alpine:latest
 
+# Устанавливает компилятор Go в alpine образ.
+RUN apk add --no-cache go
+
 WORKDIR /app
 
 # Копируем только готовый бинарник из builder-стадии
@@ -28,6 +31,12 @@ COPY .env .env
 
 # Нужна следующая строка:
 COPY db/migrations /app/db/migrations
+
+# Копируем исходный код для использования миграций
+COPY cmd /app/cmd
+COPY pkg /app/pkg
+COPY internal /app/internal
+COPY go.mod go.sum ./
 
 # Указываем открываемый порт приложения (порт, на котором слушает Go-сервер)
 EXPOSE 8080
