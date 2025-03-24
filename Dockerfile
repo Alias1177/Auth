@@ -16,10 +16,7 @@ COPY . .
 RUN cd cmd/service && CGO_ENABLED=0 go build -ldflags "-s -w" -o auth-app
 
 # Этап 2: Запуск приложения в минимальном контейнере
-FROM alpine:latest
-
-# Устанавливает компилятор Go в alpine образ.
-RUN apk add --no-cache go
+FROM golang:1.24-alpine
 
 WORKDIR /app
 
@@ -29,7 +26,7 @@ COPY --from=builder /app/cmd/service/auth-app ./auth-app
 # Копируем .env файл (по необходимости)
 COPY .env .env
 
-# Нужна следующая строка:
+# Копируем миграции
 COPY db/migrations /app/db/migrations
 
 # Копируем исходный код для использования миграций
