@@ -14,18 +14,24 @@ type DbContext struct {
 
 var (
 	instance *DbContext
-	once     sync.Once
-	mu       sync.RWMutex
+	mu       sync.RWMutex // Мьютекс для безопасного доступа к instance
 )
 
 // SetInstance устанавливает глобальный экземпляр контекста базы данных
+// Теперь позволяет переинициализировать соединения при необходимости
 func SetInstance(postgresDB *connect.PostgresDB, redisClient *redis.Client) {
-	once.Do(func() {
-		instance = &DbContext{
-			PostgresDB:  postgresDB,
-			RedisClient: redisClient,
-		}
-	})
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Закрываем предыдущие соединения, если они существуют
+	if instance != nil {
+		instance.Close()
+	}
+
+	instance = &DbContext{
+		PostgresDB:  postgresDB,
+		RedisClient: redisClient,
+	}
 }
 
 // GetInstance возвращает глобальный экземпляр контекста базы данных
@@ -35,12 +41,38 @@ func GetInstance() *DbContext {
 	return instance
 }
 
-// Close закрывает все подключения к базам данных
+// Close закрывает все подключения к базам данных с безопасной синхронизацией
 func (ctx *DbContext) Close() {
+	// Используем локальный мьютекс вместо глобального
+	// поскольку мы закрываем соединения конкретного экземпляра
+	var wg sync.WaitGroup
+
 	if ctx.PostgresDB != nil {
-		ctx.PostgresDB.Close()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ctx.PostgresDB.Close()
+		}()
 	}
+
 	if ctx.RedisClient != nil {
-		ctx.RedisClient.Close()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ctx.RedisClient.Close()
+		}()
+	}
+
+	wg.Wait()
+}
+
+// CloseGlobalInstance безопасно закрывает глобальный экземпляр
+func CloseGlobalInstance() {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if instance != nil {
+		instance.Close()
+		instance = nil
 	}
 }
