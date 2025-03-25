@@ -46,7 +46,7 @@ func main() {
 		AllowOriginFunc: func(r *http.Request, origin string) bool {
 			return true
 		},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowedHeaders:   []string{"Content-Type", "Authorization"},
 		AllowCredentials: true,
 		MaxAge:           300,
