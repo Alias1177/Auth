@@ -91,7 +91,7 @@ func main() {
 			}
 			logInstance.Infow("PostgreSQL миграции успешно применены")
 		} else if *redisFlag {
-			// Только Redis миграции вверх
+
 			logInstance.Infow("Запуск Redis миграций...")
 			if err := migrationMgr.MigrateRedisUp(ctx); err != nil {
 				logInstance.Fatalw("Failed to apply Redis migrations", "error", err)
