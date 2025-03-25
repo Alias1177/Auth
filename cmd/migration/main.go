@@ -107,7 +107,7 @@ func main() {
 		}
 	} else if *down {
 		if *postgres {
-			// Только PostgreSQL миграции вниз
+
 			logInstance.Infow("Откат PostgreSQL миграций...")
 			if err := migrationMgr.MigratePostgresDown(); err != nil {
 				logInstance.Fatalw("Failed to rollback PostgreSQL migrations", "error", err)
