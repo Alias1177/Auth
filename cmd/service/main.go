@@ -134,7 +134,7 @@ func main() {
 	// Защищённые маршруты
 	r.Route("/user", func(r chi.Router) {
 		r.Use(middleware.JWTAuthMiddleware(tokenManager))
-		r.Put("/{id}", userHandler.UpdateUser)
+		r.Patch("/{id}", userHandler.UpdateUser)
 		r.Get("/me", userGet.GetUserInfoHandler)
 	})
 
