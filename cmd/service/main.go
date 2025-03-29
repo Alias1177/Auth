@@ -131,6 +131,8 @@ func main() {
 	r.Post("/login", authHandler.Login)
 	r.Post("/register", registrationHandler.Register)
 	r.Handle("/metrics", promhttp.Handler())
+	// Добавьте эту строку в вашем main.go в разделе регистрации маршрутов
+	r.Post("/reset-password", user.ResetPasswordHandler(mainRepo, logInstance))
 
 	// Защищённые маршруты
 	r.Route("/user", func(r chi.Router) {
