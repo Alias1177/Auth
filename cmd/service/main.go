@@ -34,6 +34,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to initialize logger:", err)
 	}
+
 	defer logInstance.Close()
 
 	r := chi.NewRouter()
