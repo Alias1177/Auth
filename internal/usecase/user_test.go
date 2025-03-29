@@ -2,99 +2,73 @@ package usecase_test
 
 import (
 	"Auth/internal/entity"
-	"Auth/internal/usecase/mocks_user"
+	//"Auth/internal/usecase"
 	"context"
 	"testing"
+	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-func TestCreateUser(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockRepo := mocks_user.NewMockUserRepository(ctrl)
-	ctx := context.Background()
-
-	newUser := &entity.User{ID: 1, UserName: "karl", Email: "karl@example.com"}
-
-	// Ожидаем, что метод CreateUser будет вызван с аргументами ctx и newUser
-	mockRepo.EXPECT().
-		CreateUser(ctx, newUser).
-		Return(nil) // Ошибка не ожидается
-
-	// Вызов метода
-	err := mockRepo.CreateUser(ctx, newUser)
-
-	// Проверка, что ошибка не возникла
-	assert.NoError(t, err)
+// Моковая реализация UserRepository
+type mockUserRepo struct {
+	mock.Mock
 }
 
-func TestGetUserByID(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockRepo := mocks_user.NewMockUserRepository(ctrl)
-	ctx := context.Background()
-
-	// Создание ожидаемого пользователя
-	expectedUser := &entity.User{ID: 1, UserName: "karl", Email: "karl@example.com"}
-
-	// Ожидаем, что метод GetUserByID будет вызван с аргументом ctx и id = 1
-	mockRepo.EXPECT().
-		GetUserByID(ctx, 1).
-		Return(expectedUser, nil) // Ожидаем возвращение пользователя и отсутствие ошибки
-
-	// Вызов метода
-	user, err := mockRepo.GetUserByID(ctx, 1)
-
-	// Проверка, что ошибка не возникла и результат соответствует ожиданиям
-	assert.NoError(t, err)
-	assert.Equal(t, expectedUser, user)
+func (m *mockUserRepo) CreateUser(ctx context.Context, user *entity.User) error {
+	args := m.Called(ctx, user)
+	return args.Error(0)
 }
 
-func TestGetUserByEmail(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockRepo := mocks_user.NewMockUserRepository(ctrl)
-	ctx := context.Background()
-
-	// Создание ожидаемого пользователя
-	expectedUser := &entity.User{ID: 1, UserName: "karl", Email: "karl@example.com"}
-
-	// Ожидаем, что метод GetUserByEmail будет вызван с аргументом ctx и email = "karl@example.com"
-	mockRepo.EXPECT().
-		GetUserByEmail(ctx, "karl@example.com").
-		Return(expectedUser, nil) // Ожидаем возвращение пользователя и отсутствие ошибки
-
-	// Вызов метода
-	user, err := mockRepo.GetUserByEmail(ctx, "karl@example.com")
-
-	// Проверка, что ошибка не возникла и результат соответствует ожиданиям
-	assert.NoError(t, err)
-	assert.Equal(t, expectedUser, user)
+func (m *mockUserRepo) GetUserByID(ctx context.Context, id int) (*entity.User, error) {
+	args := m.Called(ctx, id)
+	return args.Get(0).(*entity.User), args.Error(1)
 }
 
-func TestUpdateUser(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+func (m *mockUserRepo) GetUserByEmail(ctx context.Context, email string) (*entity.User, error) {
+	args := m.Called(ctx, email)
+	return args.Get(0).(*entity.User), args.Error(1)
+}
 
-	mockRepo := mocks_user.NewMockUserRepository(ctrl)
-	ctx := context.Background()
+func (m *mockUserRepo) UpdateUser(ctx context.Context, user *entity.User) error {
+	args := m.Called(ctx, user)
+	return args.Error(0)
+}
 
-	// Создание обновленного пользователя
-	updatedUser := &entity.User{ID: 1, UserName: "karl", Email: "karl_updated@example.com"}
+func TestUserRepository(t *testing.T) {
+	mockRepo := new(mockUserRepo)
+	ctx := context.TODO()
 
-	// Ожидаем, что метод UpdateUser будет вызван с аргументами ctx и updatedUser
-	mockRepo.EXPECT().
-		UpdateUser(ctx, updatedUser).
-		Return(nil) // Ошибка не ожидается
+	user := &entity.User{
+		ID:        1,
+		UserName:  "vladimir",
+		Email:     "vladimir@example.com",
+		Password:  "hashed_password",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
 
-	// Вызов метода
-	err := mockRepo.UpdateUser(ctx, updatedUser)
+	// Ожидания моков
+	mockRepo.On("CreateUser", ctx, user).Return(nil)
+	mockRepo.On("GetUserByID", ctx, 1).Return(user, nil)
+	mockRepo.On("GetUserByEmail", ctx, "vladimir@example.com").Return(user, nil)
+	mockRepo.On("UpdateUser", ctx, user).Return(nil)
 
-	// Проверка, что ошибка не возникла
+	// Тестирование методов
+	err := mockRepo.CreateUser(ctx, user)
 	assert.NoError(t, err)
+
+	foundByID, err := mockRepo.GetUserByID(ctx, 1)
+	assert.NoError(t, err)
+	assert.Equal(t, user.ID, foundByID.ID)
+
+	foundByEmail, err := mockRepo.GetUserByEmail(ctx, "vladimir@example.com")
+	assert.NoError(t, err)
+	assert.Equal(t, user.Email, foundByEmail.Email)
+
+	err = mockRepo.UpdateUser(ctx, user)
+	assert.NoError(t, err)
+
+	mockRepo.AssertExpectations(t)
 }
