@@ -64,7 +64,7 @@ func (r *Repository) CreateUser(ctx context.Context, user *entity.User) error {
 	if err := r.redis.SaveUser(ctx, user); err != nil {
 		// Если не удалось сохранить в Redis, это критическая ошибка,
 		// так как мы должны получать данные только из Redis
-		return fmt.Errorf("failed to save user to cache: %w", err)
+		r.log.Warnw("Failed to save user to Redis cache", "error", err, "user_id", user.ID)
 	}
 
 	return nil
