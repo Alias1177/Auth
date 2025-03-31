@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/redis/go-redis/v9"
+	"strings"
 )
 
 type RedisRepository struct {
@@ -69,6 +70,13 @@ func (r *RedisRepository) SetUser(ctx context.Context, user *entity.User) error 
 
 	err = r.client.Set(ctx, key, value, 0).Err()
 	if err != nil {
+		// Check if it's a read-only error
+		if strings.Contains(err.Error(), "READONLY") {
+			r.log.Warnw("Redis is in read-only mode, skipping cache update",
+				"error", err,
+				"user_id", user.ID)
+			return nil // Return nil to allow the operation to continue
+		}
 		r.log.Errorw("Set err", "err", err)
 		return fmt.Errorf("failed to set user in redis: %w", err)
 	}

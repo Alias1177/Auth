@@ -68,6 +68,7 @@ func (r *PostgresRepository) CreateUser(ctx context.Context, user *entity.User) 
 }
 
 // UpdateUser обновляет данные существующего пользователя в базе данных.
+
 func (r *PostgresRepository) UpdateUser(ctx context.Context, user *entity.User) error {
 	query := `UPDATE UsersLog 
               SET username = $1, email = $2, password = $3, updated_at = NOW()
@@ -79,12 +80,13 @@ func (r *PostgresRepository) UpdateUser(ctx context.Context, user *entity.User) 
 		return fmt.Errorf("failed to update user: %w", err)
 	}
 
-
-	err = r.redisRepo.SetUser(ctx, user)
-	if err != nil {
-		r.log.Errorw("redis set err", "err", err)
-		return fmt.Errorf("failed to update user in redis: %w", err)
-	}
+	// Make Redis update optional and non-blocking
+	go func() {
+		err := r.redisRepo.SetUser(context.Background(), user)
+		if err != nil {
+			r.log.Errorw("redis set err (background)", "err", err)
+		}
+	}()
 
 	return nil
 }
