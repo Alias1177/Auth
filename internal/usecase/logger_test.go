@@ -1,35 +1,60 @@
 package usecase_test
 
 import (
-	"Auth/internal/usecase/mocks_logger"
+	"Auth/internal/usecase"
 	"testing"
 
-	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-func TestLoggerMethods(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+// Моковая реализация интерфейса Logger
+type mockLogger struct {
+	mock.Mock
+}
 
-	mockLogger := mocks_logger.NewMockLogger(ctrl)
+func (m *mockLogger) Infow(msg string, keysAndValues ...any) {
+	m.Called(msg, keysAndValues)
+}
+func (m *mockLogger) Errorw(msg string, keysAndValues ...any) {
+	m.Called(msg, keysAndValues)
+}
+func (m *mockLogger) Warnw(msg string, keysAndValues ...any) {
+	m.Called(msg, keysAndValues)
+}
+func (m *mockLogger) Debugw(msg string, keysAndValues ...any) {
+	m.Called(msg, keysAndValues)
+}
+func (m *mockLogger) Fatalw(msg string, keysAndValues ...any) {
+	m.Called(msg, keysAndValues)
+}
+func (m *mockLogger) Close() error {
+	args := m.Called()
+	return args.Error(0)
+}
 
-	// Примеры вызовов с ожиданиями
-	mockLogger.EXPECT().Infow("starting server", "port", 8080)
-	mockLogger.EXPECT().Debugw("debug message", "step", 1)
-	mockLogger.EXPECT().Warnw("warning", "disk", "low")
-	mockLogger.EXPECT().Errorw("error occurred", "err", "some error")
-	mockLogger.EXPECT().Fatalw("fatal crash", "code", 500)
-	mockLogger.EXPECT().Close().Return(nil)
+// Пример функции, использующей Logger
+func doSomething(logger usecase.Logger) {
+	logger.Infow("Process started", "step", 1)
+	logger.Errorw("Something went wrong", "code", 500)
+}
 
-	// Вызовы, чтобы мок "проработал"
-	mockLogger.Infow("starting server", "port", 8080)
-	mockLogger.Debugw("debug message", "step", 1)
-	mockLogger.Warnw("warning", "disk", "low")
-	mockLogger.Errorw("error occurred", "err", "some error")
-	mockLogger.Fatalw("fatal crash", "code", 500)
-	err := mockLogger.Close()
+func TestLoggerUsage(t *testing.T) {
+	mockLog := new(mockLogger)
 
-	if err != nil {
-		t.Errorf("expected nil error from Close(), got %v", err)
-	}
+	mockLog.On("Infow", "Process started", mock.Anything).Return()
+	mockLog.On("Errorw", "Something went wrong", mock.Anything).Return()
+
+	doSomething(mockLog)
+
+	mockLog.AssertExpectations(t)
+}
+
+func TestLogger_Close(t *testing.T) {
+	mockLog := new(mockLogger)
+	mockLog.On("Close").Return(nil)
+
+	err := mockLog.Close()
+	assert.NoError(t, err)
+	mockLog.AssertExpectations(t)
 }
