@@ -6,14 +6,20 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"github.com/go-playground/validator/v10"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
 )
 
 // ResetPasswordRequest структура для запроса обновления пароля
 type ResetPasswordRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required,min=8,containsAny=1234567890!@#$%"`
+}
+
+func ValidateRequest(v interface{}) error {
+	validate := validator.New()
+	return validate.Struct(v)
 }
 
 // ResetPasswordHandler обработчик для сброса пароля по email
@@ -32,6 +38,11 @@ func ResetPasswordHandler(userRepo usecase.UserRepository, log *logger.Logger) h
 			log.Errorw("Отсутствует email или пароль в запросе", "email", req.Email)
 			http.Error(w, "Email и пароль должны быть заполнены", http.StatusBadRequest)
 			return
+		}
+
+		if err := ValidateRequest(req); err != nil {
+			log.Errorw("error while validating request", "error", err)
+			http.Error(w, "Некорректный запрос", http.StatusBadRequest)
 		}
 
 		// Находим пользователя по email

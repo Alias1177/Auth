@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"github.com/go-playground/validator/v10"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"strconv"
@@ -49,17 +50,28 @@ func (h *RegistrationHandler) setTokenCookie(w http.ResponseWriter, cookieName, 
 	})
 }
 
-func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Email    string `json:"email"`
-		Username string `json:"username"`
-		Password string `json:"password"`
-	}
+func ValidateRequest(v interface{}) error {
+	validate := validator.New()
+	return validate.Struct(v)
+}
 
+// Example of request validation
+type CreateUserRequest struct {
+	Username string `json:"username" validate:"required,min=3,max=60"`
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required,min=8,containsAny=!@#$%"`
+}
+
+func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
+	var req CreateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Errorw("error while decoding body", "error", err)
 		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
 		return
+	}
+	if err := ValidateRequest(req); err != nil {
+		h.logger.Errorw("error while validating request", "error", err)
+		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
 	}
 
 	_, err := h.userRepository.GetUserByEmail(r.Context(), req.Email)
