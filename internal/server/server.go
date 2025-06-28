@@ -67,6 +67,7 @@ func (s *Server) setupRoutes() {
 	s.router.Post("/login", authHandler.Login)
 	s.router.Post("/register", registrationHandler.Register)
 	s.router.Handle("/metrics", promhttp.Handler())
+	s.router.Post("/refresh-token", authHandler.Refresh)
 
 	// Защищённые маршруты
 	s.router.Route("/user", func(r chi.Router) {
