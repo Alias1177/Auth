@@ -1,21 +1,22 @@
 package user
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
 	"github.com/Alias1177/Auth/internal/entity"
 	"github.com/Alias1177/Auth/internal/usecase"
+	"github.com/Alias1177/Auth/pkg/crypto"
+	"github.com/Alias1177/Auth/pkg/errors"
+	"github.com/Alias1177/Auth/pkg/httputil"
 	"github.com/Alias1177/Auth/pkg/logger"
 	"github.com/go-chi/chi/v5"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // UserHandler управляет запросами, связанными с пользователями.
 type UserHandler struct {
 	userRepository usecase.UserRepository
-	logger         *logger.Logger // Изменили на *logger.Logger для консистентности
+	logger         *logger.Logger
 }
 
 func NewUserHandler(userRepo usecase.UserRepository, log *logger.Logger) *UserHandler {
@@ -31,52 +32,40 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	userIDStr := chi.URLParam(r, "id")
 	userID, err := strconv.Atoi(userIDStr)
 	if err != nil {
-		if h.logger != nil {
-			h.logger.Errorw("userHandler", "user_id", userIDStr, "err", err)
-		}
-		http.Error(w, "Некорректный ID пользователя", http.StatusBadRequest)
+		h.logger.Errorw("Invalid user ID", "user_id", userIDStr, "error", err)
+		httputil.JSONError(w, http.StatusBadRequest, "Некорректный ID пользователя")
 		return
 	}
 
-	// Разбираем тело запроса
+	// Декодирование JSON запроса
 	var user entity.User
-	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		if h.logger != nil {
-			h.logger.Errorw("userHandler", "err", err)
-		}
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+	if err := httputil.DecodeJSON(r, &user, h.logger); err != nil {
+		httputil.JSONError(w, http.StatusBadRequest, "Некорректный запрос")
 		return
 	}
 
 	// Устанавливаем ID пользователя
 	user.ID = userID
 
-	// Если был передан новый пароль, хэшируем его
+	// Если был передан новый пароль, хешируем его
 	if user.Password != "" {
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+		hashedPassword, err := crypto.HashPassword(user.Password)
 		if err != nil {
-			if h.logger != nil {
-				h.logger.Errorw("userHandler", "err", err)
-			}
-			http.Error(w, "Не удалось хэшировать пароль", http.StatusInternalServerError)
+			errors.HandleInternalError(w, err, h.logger, "hash password")
 			return
 		}
-		user.Password = string(hashedPassword)
+		user.Password = hashedPassword
 	}
 
 	// Обновляем пользователя
-	err = h.userRepository.UpdateUser(r.Context(), &user)
-	if err != nil {
-		if h.logger != nil {
-			h.logger.Errorw("userHandler", "err", err)
-		}
-		http.Error(w, "Не удалось обновить данные пользователя", http.StatusInternalServerError)
+	if err := h.userRepository.UpdateUser(r.Context(), &user); err != nil {
+		errors.HandleInternalError(w, err, h.logger, "update user")
 		return
 	}
 
-	// Ответ клиенту
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Пользователь успешно обновлён",
-	})
+	// Отправка успешного ответа
+	response := httputil.SuccessResponse("Пользователь успешно обновлён")
+	if err := httputil.JSONResponse(w, http.StatusOK, response); err != nil {
+		errors.HandleInternalError(w, err, h.logger, "encode response")
+	}
 }

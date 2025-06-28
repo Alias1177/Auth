@@ -1,12 +1,13 @@
 package user
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
 	"github.com/Alias1177/Auth/internal/entity"
 	"github.com/Alias1177/Auth/internal/infrastructure/middleware"
+	"github.com/Alias1177/Auth/pkg/errors"
+	"github.com/Alias1177/Auth/pkg/httputil"
 )
 
 // GetUserInfoHandler отвечает за получение информации о пользователе.
@@ -14,25 +15,27 @@ func (h *UserHandler) GetUserInfoHandler(w http.ResponseWriter, r *http.Request)
 	// Получаем информацию о пользователе из контекста (добавленную middleware)
 	userClaims, ok := r.Context().Value(middleware.CtxUserKey).(*entity.UserClaims)
 	if !ok {
-		http.Error(w, "Ошибка получения информации о пользователе", http.StatusInternalServerError)
+		errors.HandleInternalError(w, nil, h.logger, "get user claims from context")
 		return
 	}
 
 	// Преобразуем ID из строки в int
 	userID, err := strconv.Atoi(userClaims.UserID)
 	if err != nil {
-		http.Error(w, "Некорректный ID пользователя", http.StatusBadRequest)
+		h.logger.Errorw("Invalid user ID in claims", "user_id", userClaims.UserID, "error", err)
+		httputil.JSONError(w, http.StatusBadRequest, "Некорректный ID пользователя")
 		return
 	}
 
 	// Получаем полную информацию о пользователе
 	user, err := h.userRepository.GetUserByID(r.Context(), userID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		errors.HandleDatabaseError(w, err, h.logger, "get user by ID")
 		return
 	}
 
 	// Отправляем информацию о пользователе
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	if err := httputil.JSONResponse(w, http.StatusOK, user); err != nil {
+		errors.HandleInternalError(w, err, h.logger, "encode user response")
+	}
 }
