@@ -1,24 +1,23 @@
 package auth
 
 import (
-	"database/sql"
-	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/Alias1177/Auth/config"
 	"github.com/Alias1177/Auth/internal/entity"
 	"github.com/Alias1177/Auth/internal/usecase"
+	"github.com/Alias1177/Auth/pkg/crypto"
+	"github.com/Alias1177/Auth/pkg/errors"
+	"github.com/Alias1177/Auth/pkg/httputil"
 	"github.com/Alias1177/Auth/pkg/logger"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthHandler struct {
 	tokenManager   usecase.TokenManager
 	jwtConfig      config.JWTConfig
 	userRepository usecase.UserRepository
-	logger         logger.Logger
+	logger         *logger.Logger
 }
 
 func NewAuthHandler(manager usecase.TokenManager, cfg config.JWTConfig, repo usecase.UserRepository, log *logger.Logger) *AuthHandler {
@@ -26,20 +25,8 @@ func NewAuthHandler(manager usecase.TokenManager, cfg config.JWTConfig, repo use
 		tokenManager:   manager,
 		jwtConfig:      cfg,
 		userRepository: repo,
-		logger:         *log,
+		logger:         log,
 	}
-}
-
-// setTokenCookie устанавливает JWT токен в куки с необходимыми параметрами безопасности
-func (h *AuthHandler) setTokenCookie(w http.ResponseWriter, cookieName, token string) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     cookieName,
-		Value:    token,
-		HttpOnly: true,
-		Secure:   true,
-		Path:     "/",
-		SameSite: http.SameSiteStrictMode,
-	})
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -48,32 +35,26 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.logger.Errorw("error while decoding login request", "error", err)
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+	// Декодирование JSON запроса
+	if err := httputil.DecodeJSON(r, &req, h.logger); err != nil {
+		httputil.JSONError(w, http.StatusBadRequest, "Некорректный запрос")
 		return
 	}
 
+	// Получение пользователя по email
 	user, err := h.userRepository.GetUserByEmail(r.Context(), req.Email)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			h.logger.Errorw("Can not find user by email", "error", err)
-			http.Error(w, "Пользователь не найден", http.StatusUnauthorized)
-			return
-		}
-		h.logger.Errorw("error while getting user by email", "error", err)
-		http.Error(w, "Ошибка запроса пользователя", http.StatusInternalServerError)
+		errors.HandleDatabaseError(w, err, h.logger, "get user by email")
 		return
 	}
 
-	// 🔐 Проверка пароля
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		h.logger.Errorw("Пароль не совпадает с хешем", "error", err)
-		http.Error(w, "Пароль неверный", http.StatusUnauthorized)
+	// Проверка пароля
+	if err := crypto.VerifyPassword(user.Password, req.Password); err != nil {
+		errors.HandleUnauthorizedError(w, "Неверный пароль", h.logger)
 		return
 	}
 
-	// Генерация JWT-токенов
+	// Генерация JWT токена
 	claims := entity.UserClaims{
 		UserID: strconv.Itoa(user.ID),
 		Email:  user.Email,
@@ -81,25 +62,20 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	accessToken, err := h.tokenManager.GenerateAccessToken(claims)
 	if err != nil {
-		h.logger.Errorw("error while generating access token", "error", err)
-		http.Error(w, "Не удалось создать access token", http.StatusInternalServerError)
+		errors.HandleInternalError(w, err, h.logger, "generate access token")
 		return
 	}
 
-	// Установка токенов в куки
-	h.setTokenCookie(w, "access-token", accessToken)
+	// Установка токена в куки
+	httputil.SetTokenCookie(w, "access-token", accessToken)
 
-	// 👇 Возвращаем токены в JSON-ответе
+	// Отправка успешного ответа
 	response := map[string]string{
 		"message":      "Вы успешно вошли в систему",
 		"access_token": accessToken,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		h.logger.Errorw("error while encoding response", "error", err)
-		http.Error(w, "Ошибка формирования JSON ответа", http.StatusInternalServerError)
+	if err := httputil.JSONResponse(w, http.StatusOK, response); err != nil {
+		errors.HandleInternalError(w, err, h.logger, "encode response")
 	}
 }

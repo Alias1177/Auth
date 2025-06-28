@@ -1,14 +1,13 @@
 package user
 
 import (
-	"database/sql"
-	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/Alias1177/Auth/internal/usecase"
+	"github.com/Alias1177/Auth/pkg/crypto"
+	"github.com/Alias1177/Auth/pkg/errors"
+	"github.com/Alias1177/Auth/pkg/httputil"
 	"github.com/Alias1177/Auth/pkg/logger"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // ResetPasswordRequest структура для запроса обновления пароля
@@ -20,57 +19,47 @@ type ResetPasswordRequest struct {
 // ResetPasswordHandler обработчик для сброса пароля по email
 func ResetPasswordHandler(userRepo usecase.UserRepository, log *logger.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Разбираем тело запроса
+		// Декодирование JSON запроса
 		var req ResetPasswordRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Errorw("Ошибка при разборе запроса на сброс пароля", "err", err)
-			http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		if err := httputil.DecodeJSON(r, &req, log); err != nil {
+			httputil.JSONError(w, http.StatusBadRequest, "Некорректный запрос")
 			return
 		}
 
 		// Проверяем, что email и пароль заполнены
 		if req.Email == "" || req.Password == "" {
-			log.Errorw("Отсутствует email или пароль в запросе", "email", req.Email)
-			http.Error(w, "Email и пароль должны быть заполнены", http.StatusBadRequest)
+			log.Warnw("Missing email or password in reset request", "email", req.Email)
+			httputil.JSONError(w, http.StatusBadRequest, "Email и пароль должны быть заполнены")
 			return
 		}
 
 		// Находим пользователя по email
 		user, err := userRepo.GetUserByEmail(r.Context(), req.Email)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				log.Errorw("Пользователь не найден", "email", req.Email)
-				http.Error(w, "Пользователь с таким email не найден", http.StatusNotFound)
-				return
-			}
-			log.Errorw("Ошибка при поиске пользователя", "email", req.Email, "err", err)
-			http.Error(w, "Ошибка при поиске пользователя", http.StatusInternalServerError)
+			errors.HandleDatabaseError(w, err, log, "get user by email for password reset")
 			return
 		}
 
-		// Хэшируем новый пароль
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		// Хешируем новый пароль
+		hashedPassword, err := crypto.HashPassword(req.Password)
 		if err != nil {
-			log.Errorw("Ошибка при хэшировании пароля", "err", err)
-			http.Error(w, "Не удалось хэшировать пароль", http.StatusInternalServerError)
+			errors.HandleInternalError(w, err, log, "hash new password")
 			return
 		}
 
 		// Обновляем пароль пользователя
-		user.Password = string(hashedPassword)
+		user.Password = hashedPassword
 
 		// Обновляем пользователя в базе данных
 		if err := userRepo.UpdateUser(r.Context(), user); err != nil {
-			log.Errorw("Ошибка при обновлении пароля", "email", req.Email, "err", err)
-			http.Error(w, "Не удалось обновить пароль", http.StatusInternalServerError)
+			errors.HandleInternalError(w, err, log, "update user password")
 			return
 		}
 
-		// Отвечаем успехом
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{
-			"message": "Пароль успешно обновлён",
-		})
+		// Отправка успешного ответа
+		response := httputil.SuccessResponse("Пароль успешно обновлён")
+		if err := httputil.JSONResponse(w, http.StatusOK, response); err != nil {
+			errors.HandleInternalError(w, err, log, "encode response")
+		}
 	}
 }

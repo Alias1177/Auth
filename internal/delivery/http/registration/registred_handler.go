@@ -1,25 +1,24 @@
 package registration
 
 import (
-	"database/sql"
-	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/Alias1177/Auth/config"
 	"github.com/Alias1177/Auth/internal/entity"
 	"github.com/Alias1177/Auth/internal/usecase"
+	"github.com/Alias1177/Auth/pkg/crypto"
+	"github.com/Alias1177/Auth/pkg/errors"
+	"github.com/Alias1177/Auth/pkg/httputil"
 	"github.com/Alias1177/Auth/pkg/kafka"
 	"github.com/Alias1177/Auth/pkg/logger"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type RegistrationHandler struct {
 	userRepository usecase.UserRepository
 	tokenManager   usecase.TokenManager
 	jwtConfig      config.JWTConfig
-	logger         logger.Logger
+	logger         *logger.Logger
 	kafkaProducer  *kafka.Producer
 }
 
@@ -34,20 +33,9 @@ func NewRegistrationHandler(
 		userRepository: repo,
 		tokenManager:   manager,
 		jwtConfig:      cfg,
-		logger:         *log,
+		logger:         log,
 		kafkaProducer:  producer,
 	}
-}
-
-func (h *RegistrationHandler) setTokenCookie(w http.ResponseWriter, cookieName, token string) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     cookieName,
-		Value:    token,
-		HttpOnly: true,
-		Secure:   true,
-		Path:     "/",
-		SameSite: http.SameSiteStrictMode,
-	})
 }
 
 func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -57,52 +45,47 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.logger.Errorw("error while decoding body", "error", err)
-		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+	// Декодирование JSON запроса
+	if err := httputil.DecodeJSON(r, &req, h.logger); err != nil {
+		httputil.JSONError(w, http.StatusBadRequest, "Некорректный запрос")
 		return
 	}
 
+	// Проверка существования пользователя
 	_, err := h.userRepository.GetUserByEmail(r.Context(), req.Email)
 	if err == nil {
-		h.logger.Errorw("User already exists", "email", req.Email, "username", req.Username)
-		http.Error(w, "Пользователь с таким email уже существует", http.StatusConflict)
-		return
-	} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		h.logger.Errorw("error while fetching user", "error", err)
-		http.Error(w, "Ошибка проверки пользователя", http.StatusInternalServerError)
+		h.logger.Warnw("User already exists", "email", req.Email, "username", req.Username)
+		httputil.JSONError(w, http.StatusConflict, "Пользователь с таким email уже существует")
 		return
 	}
 
-	// 🔑 Хешируем пароль перед записью в БД
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	// Хеширование пароля
+	hashedPassword, err := crypto.HashPassword(req.Password)
 	if err != nil {
-		h.logger.Errorw("error while hashing password", "error", err)
-		http.Error(w, "Ошибка при обработке пароля", http.StatusInternalServerError)
+		errors.HandleInternalError(w, err, h.logger, "hash password")
 		return
 	}
 
-	// 🎯 Создание пользователя с хешированным паролем
+	// Создание пользователя
 	newUser := entity.User{
 		Email:    req.Email,
 		UserName: req.Username,
-		Password: string(hashedPassword), // ✅ сохраняем именно хеш!
+		Password: hashedPassword,
 	}
 
 	if err := h.userRepository.CreateUser(r.Context(), &newUser); err != nil {
-		h.logger.Errorw("error while creating user", "error", err)
-		http.Error(w, "Ошибка создания пользователя", http.StatusInternalServerError)
+		errors.HandleInternalError(w, err, h.logger, "create user")
 		return
 	}
 
-	// Отправляем информацию о регистрации в Kafka
+	// Отправка в Kafka (не критично для успеха регистрации)
 	if h.kafkaProducer != nil {
 		if err := h.kafkaProducer.SendEmailRegistration(r.Context(), req.Email, req.Username); err != nil {
-			// Логируем ошибку, но не прерываем процесс регистрации
 			h.logger.Errorw("Failed to send registration to Kafka", "error", err, "email", req.Email)
 		}
 	}
 
+	// Генерация JWT токена
 	claims := entity.UserClaims{
 		UserID: strconv.Itoa(newUser.ID),
 		Email:  newUser.Email,
@@ -110,15 +93,16 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	accessToken, err := h.tokenManager.GenerateAccessToken(claims)
 	if err != nil {
-		h.logger.Errorw("error while generating access token", "error", err)
-		http.Error(w, "Ошибка генерации access token", http.StatusInternalServerError)
+		errors.HandleInternalError(w, err, h.logger, "generate access token")
 		return
 	}
 
-	h.setTokenCookie(w, "access-token", accessToken)
+	// Установка токена в куки
+	httputil.SetTokenCookie(w, "access-token", accessToken)
 
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Пользователь успешно зарегистрирован",
-	})
+	// Отправка успешного ответа
+	response := httputil.SuccessResponse("Пользователь успешно зарегистрирован")
+	if err := httputil.JSONResponse(w, http.StatusCreated, response); err != nil {
+		errors.HandleInternalError(w, err, h.logger, "encode response")
+	}
 }
