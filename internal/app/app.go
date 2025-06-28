@@ -28,7 +28,6 @@ type App struct {
 // New создает новый экземпляр приложения
 func New() *App {
 	ctx, cancel := context.WithCancel(context.Background())
-
 	return &App{
 		ctx:    ctx,
 		cancel: cancel,

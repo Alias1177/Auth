@@ -65,6 +65,11 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		errors.HandleInternalError(w, err, h.logger, "generate access token")
 		return
 	}
+	refreshToken, err := h.tokenManager.GenerateRefreshToken(claims)
+	if err != nil {
+		errors.HandleInternalError(w, err, h.logger, "generate refresh token")
+		return
+	}
 
 	// Установка токена в куки
 	httputil.SetTokenCookie(w, "access-token", accessToken)
@@ -73,6 +78,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	response := map[string]string{
 		"message":      "Вы успешно вошли в систему",
 		"access_token": accessToken,
+		"refresh_token": refreshToken,
 	}
 
 	if err := httputil.JSONResponse(w, http.StatusOK, response); err != nil {

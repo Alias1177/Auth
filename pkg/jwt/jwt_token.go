@@ -3,6 +3,7 @@ package jwt
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/Alias1177/Auth/config"
 	"github.com/Alias1177/Auth/internal/entity"
@@ -13,6 +14,10 @@ type JWTTokenManager struct {
 	secret string
 }
 
+type RefreshTokenStruct struct {
+	Token string `json:"refresh_token"`
+}
+
 func NewJWTTokenManager(cfg config.JWTConfig) *JWTTokenManager {
 	return &JWTTokenManager{
 		secret: cfg.Secret,
@@ -20,9 +25,11 @@ func NewJWTTokenManager(cfg config.JWTConfig) *JWTTokenManager {
 }
 
 func (j *JWTTokenManager) GenerateAccessToken(userClaims entity.UserClaims) (string, error) {
+	exp := time.Now().Add(15 * time.Minute).Unix()
 	tokenClaims := jwt.MapClaims{
 		"sub":   userClaims.UserID,
 		"email": userClaims.Email,
+		"exp":   exp,
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, tokenClaims)
 	return token.SignedString([]byte(j.secret))
@@ -33,48 +40,85 @@ func (j *JWTTokenManager) ValidateAccessToken(token string) (*entity.UserClaims,
 }
 
 func (j *JWTTokenManager) validateToken(token string, isAccess bool) (*entity.UserClaims, error) {
-	// Парсинг токена
 	parsedToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
-		// Проверяем, что метод подписи соответствует HMAC
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
 		}
 		return []byte(j.secret), nil
 	})
-
-	// Если возникла ошибка при парсинге токена
 	if err != nil {
 		return nil, fmt.Errorf("invalid token format: %w", err)
 	}
-
-	// Проверяем, является ли токен валидным
 	if !parsedToken.Valid {
 		return nil, errors.New("invalid token")
 	}
-
-	// Извлекаем claims
 	claims, ok := parsedToken.Claims.(jwt.MapClaims)
 	if !ok {
 		return nil, errors.New("invalid claims format")
 	}
 
-	// Логирование всех claims для отладки
-	fmt.Println("Расшифрованные claims:", claims)
-
-	// Извлечение нужных данных из claims
+	// Проверка exp
+	if expRaw, ok := claims["exp"]; ok {
+		switch exp := expRaw.(type) {
+		case float64:
+			if int64(exp) < time.Now().Unix() {
+				return nil, errors.New("token expired")
+			}
+		case int64:
+			if exp < time.Now().Unix() {
+				return nil, errors.New("token expired")
+			}
+		}
+	}
+	// Проверка типа для refresh
+	if !isAccess {
+		t, ok := claims["type"].(string)
+		if !ok || t != "refresh" {
+			return nil, errors.New("not a refresh token")
+		}
+	}
 	userID, ok := claims["sub"].(string)
 	if !ok {
 		return nil, errors.New("missing or invalid 'sub' claim")
 	}
-
 	email, ok := claims["email"].(string)
 	if !ok {
 		return nil, errors.New("missing or invalid 'email' claim")
 	}
 
-	// Если все проверки прошли успешно, возвращаем данные о пользователе
 	return &entity.UserClaims{
 		UserID: userID,
 		Email:  email,
 	}, nil
+}
+
+func (j *JWTTokenManager) GenerateRefreshToken(userClaims entity.UserClaims) (string, error) {
+	exp := time.Now().Add(7 * 24 * time.Hour).Unix()
+	claims := jwt.MapClaims{
+		"sub":   userClaims.UserID,
+		"email": userClaims.Email,
+		"type":  "refresh",
+		"exp":   exp,
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(j.secret))
+}
+
+func (j *JWTTokenManager) RefreshTokens(refreshToken string) (string, string, error) {
+	claims, err := j.validateToken(refreshToken, false)
+	if err != nil {
+		return "", "", err
+	}
+
+	newAccessToken, err := j.GenerateAccessToken(*claims)
+	if err != nil {
+		return "", "", err
+	}
+
+	newRefreshToken, err := j.GenerateRefreshToken(*claims)
+	if err != nil {
+		return "", "", err
+	}
+
+	return newAccessToken, newRefreshToken, nil
 }

@@ -11,7 +11,6 @@ import (
 )
 
 // MigrationManager предоставляет интерфейс для управления миграциями PostgreSQL
-// (Redis миграции убраны)
 type MigrationManager struct {
 	pgMigrator *postgres.Migrator
 	logger     *logger.Logger
