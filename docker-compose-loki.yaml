@@ -6,9 +6,9 @@ services:
     ports:
       - "3100:3100"
     volumes:
-      - ./loki-config.yaml:/etc/loki/config.yaml
+      - ./loki-configs.yaml:/etc/loki/configs.yaml
       - loki_data:/loki
-    command: -config.file=/etc/loki/local-config.yaml
+    command: -configs.file=/etc/loki/local-configs.yaml
     healthcheck:
       test: [ "CMD", "wget", "-q", "--spider", "http://localhost:3100/ready" ]
       interval: 10s
@@ -20,10 +20,10 @@ services:
     image: grafana/promtail:latest
     container_name: promtail
     volumes:
-      - ./promtail-config.yaml:/etc/promtail/config.yaml
+      - ./promtail-configs.yaml:/etc/promtail/configs.yaml
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock
-    command: -config.file=/etc/promtail/config.yaml
+    command: -configs.file=/etc/promtail/configs.yaml
     depends_on:
       - loki
 
