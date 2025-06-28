@@ -26,7 +26,7 @@ func main() {
 	ctx := context.Background()
 
 	// Инициализация логгера
-	logInstance, err := logger.NewSimpleLogger("info")
+	logInstance, err := logger.New("info")
 	if err != nil {
 		log.Fatal("Failed to initialize logger:", err)
 	}
