@@ -1,14 +1,15 @@
 package user
 
 import (
-	"Auth/internal/entity"
-	"Auth/internal/usecase"
-	"Auth/pkg/logger"
 	"encoding/json"
-	"github.com/go-chi/chi/v5"
-	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"strconv"
+
+	"github.com/Alias1177/Auth/internal/entity"
+	"github.com/Alias1177/Auth/internal/usecase"
+	"github.com/Alias1177/Auth/pkg/logger"
+	"github.com/go-chi/chi/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // UserHandler управляет запросами, связанными с пользователями.

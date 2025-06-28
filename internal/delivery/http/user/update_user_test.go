@@ -1,15 +1,16 @@
 package user_test
 
 import (
-	"Auth/internal/delivery/http/user"
-	"Auth/internal/entity"
-	"Auth/pkg/logger"
 	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/Alias1177/Auth/internal/delivery/http/user"
+	"github.com/Alias1177/Auth/internal/entity"
+	"github.com/Alias1177/Auth/pkg/logger"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"

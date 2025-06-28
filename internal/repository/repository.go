@@ -2,11 +2,12 @@
 package repository
 
 import (
-	"Auth/internal/entity"
-	"Auth/internal/usecase"
 	"context"
 	"fmt"
 	"log/slog"
+
+	"github.com/Alias1177/Auth/internal/entity"
+	"github.com/Alias1177/Auth/internal/usecase"
 )
 
 // Repository представляет собой агрегатор репозиториев PostgreSQL и Redis.

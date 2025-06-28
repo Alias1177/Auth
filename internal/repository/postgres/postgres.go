@@ -1,13 +1,14 @@
 package postgres
 
 import (
-	"Auth/internal/entity"
-	"Auth/internal/repository/redis"
-	"Auth/pkg/logger"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
+
+	"github.com/Alias1177/Auth/internal/entity"
+	"github.com/Alias1177/Auth/internal/repository/redis"
+	"github.com/Alias1177/Auth/pkg/logger"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )

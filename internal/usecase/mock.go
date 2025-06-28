@@ -1,8 +1,9 @@
 package usecase
 
 import (
-	"Auth/internal/entity"
 	"context"
+
+	"github.com/Alias1177/Auth/internal/entity"
 
 	"github.com/stretchr/testify/mock"
 )

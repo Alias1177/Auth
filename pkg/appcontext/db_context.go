@@ -1,9 +1,10 @@
 package appcontext
 
 import (
-	"Auth/internal/infrastructure/postgres/connect"
-	"github.com/redis/go-redis/v9"
 	"sync"
+
+	"github.com/Alias1177/Auth/internal/infrastructure/postgres/connect"
+	"github.com/redis/go-redis/v9"
 )
 
 // DbContext хранит подключения к базам данных, доступные для всего приложения

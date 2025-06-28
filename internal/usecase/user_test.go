@@ -1,7 +1,7 @@
 package usecase_test
 
 import (
-	"Auth/internal/entity"
+	"github.com/Alias1177/Auth/internal/entity"
 	//"Auth/internal/usecase"
 	"context"
 	"testing"

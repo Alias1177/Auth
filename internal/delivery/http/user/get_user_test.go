@@ -1,8 +1,6 @@
 package user
 
 import (
-	"Auth/internal/entity"
-	"Auth/internal/infrastructure/middleware"
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,6 +8,9 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"testing"
+
+	"github.com/Alias1177/Auth/internal/entity"
+	"github.com/Alias1177/Auth/internal/infrastructure/middleware"
 
 	"github.com/stretchr/testify/assert"
 )

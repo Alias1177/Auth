@@ -1,13 +1,14 @@
 package user
 
 import (
-	"Auth/internal/usecase"
-	"Auth/pkg/logger"
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"golang.org/x/crypto/bcrypt"
 	"net/http"
+
+	"github.com/Alias1177/Auth/internal/usecase"
+	"github.com/Alias1177/Auth/pkg/logger"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // ResetPasswordRequest структура для запроса обновления пароля

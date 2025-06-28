@@ -1,11 +1,12 @@
 package user
 
 import (
-	"Auth/internal/entity"
-	"Auth/internal/infrastructure/middleware"
 	"encoding/json"
 	"net/http"
 	"strconv"
+
+	"github.com/Alias1177/Auth/internal/entity"
+	"github.com/Alias1177/Auth/internal/infrastructure/middleware"
 )
 
 // GetUserInfoHandler отвечает за получение информации о пользователе.

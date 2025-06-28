@@ -1,15 +1,16 @@
 package postgres
 
 import (
-	"Auth/pkg/logger"
-	"Auth/pkg/migration"
 	"errors"
 	"fmt"
+	"sync"
+
+	"github.com/Alias1177/Auth/pkg/logger"
+	"github.com/Alias1177/Auth/pkg/migration"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jmoiron/sqlx"
-	"sync"
 )
 
 // Migrator handles database migrations

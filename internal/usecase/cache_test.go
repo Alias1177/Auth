@@ -1,10 +1,11 @@
 package usecase_test
 
 import (
-	"Auth/internal/entity"
 	"context"
 	"testing"
 	"time"
+
+	"github.com/Alias1177/Auth/internal/entity"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

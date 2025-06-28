@@ -1,11 +1,12 @@
 package kafka
 
 import (
-	"Auth/pkg/logger"
 	"context"
 	"fmt"
-	"github.com/segmentio/kafka-go"
 	"time"
+
+	"github.com/Alias1177/Auth/pkg/logger"
+	"github.com/segmentio/kafka-go"
 )
 
 // Producer представляет собой клиент для отправки сообщений в Kafka

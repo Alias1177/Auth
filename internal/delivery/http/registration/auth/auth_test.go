@@ -1,9 +1,6 @@
 package auth
 
 import (
-	"Auth/config"
-	"Auth/internal/entity"
-	"Auth/pkg/logger"
 	"bytes"
 	"context"
 	"database/sql"
@@ -13,6 +10,10 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"testing"
+
+	"github.com/Alias1177/Auth/config"
+	"github.com/Alias1177/Auth/internal/entity"
+	"github.com/Alias1177/Auth/pkg/logger"
 
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/bcrypt"
