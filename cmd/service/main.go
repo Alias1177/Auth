@@ -56,7 +56,7 @@ func main() {
 
 	cfg, err := config.Load(".env")
 	if err != nil {
-		log.Fatal("Failed to load config:", err)
+		log.Fatal("Failed to load configs:", err)
 	}
 
 	// Подключение к PostgreSQL
@@ -91,7 +91,6 @@ func main() {
 		// Создаем менеджер миграций
 		migrationMgr, err := manager.NewMigrationManager(
 			dbContext.PostgresDB.GetConn(),
-			dbContext.RedisClient,
 			logInstance,
 			"db/migrations",
 		)
@@ -132,7 +131,7 @@ func main() {
 	r.Post("/login", authHandler.Login)
 	r.Post("/register", registrationHandler.Register)
 	r.Handle("/metrics", promhttp.Handler())
-	// Добавьте эту строку в вашем main.go в разделе регистрации маршрутов
+	// Добавьте эту строку в вашем mainReadyTrade.go в разделе регистрации маршрутов
 	r.Post("/reset-password", user.ResetPasswordHandler(mainRepo, logInstance))
 
 	// Защищённые маршруты

@@ -19,7 +19,7 @@ redis:
 jwt:
   secret: "jwt_secret"
 `
-	tmpFile, err := os.CreateTemp("", "config.*.yaml")
+	tmpFile, err := os.CreateTemp("", "configs.*.yaml")
 	assert.NoError(t, err)
 	defer os.Remove(tmpFile.Name())
 

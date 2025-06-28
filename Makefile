@@ -7,55 +7,25 @@ MIGRATIONS_PATH = ./db/migrations
 .PHONY: help
 help:
 	@echo "Использование:"
-	@echo "  make migrate-up     - Запустить все ожидающие миграции"
-	@echo "  make migrate-down   - Откатить последнюю миграцию"
-	@echo "  make migrate-pg-up  - Запустить только миграции PostgreSQL"
-	@echo "  make migrate-pg-down - Откатить только миграции PostgreSQL"
-	@echo "  make migrate-redis-up - Запустить только миграции Redis"
-	@echo "  make migrate-redis-down - Откатить только миграции Redis"
+	@echo "  make migrate-up     - Запустить все ожидающие миграции (PostgreSQL)"
+	@echo "  make migrate-down   - Откатить последнюю миграцию (PostgreSQL)"
 	@echo "  make migrate-create name=название_миграции - Создать новую миграцию"
+	@echo "  make docker-migrate-up   - Запустить миграции через docker-compose"
+	@echo "  make docker-migrate-down - Откатить миграции через docker-compose"
 
-# Запустить все ожидающие миграции
+# Запустить все ожидающие миграции (PostgreSQL)
 .PHONY: migrate-up
 migrate-up:
-	@echo "Применение всех миграций..."
-	go run cmd/migration/main.go -up
-	@echo "Миграции успешно применены."
-
-# Откатить последнюю миграцию
-.PHONY: migrate-down
-migrate-down:
-	@echo "Откат всех последних миграций..."
-	go run cmd/migration/main.go -down
-	@echo "Откат успешно завершен."
-
-# Запустить только миграции PostgreSQL
-.PHONY: migrate-pg-up
-migrate-pg-up:
 	@echo "Применение миграций PostgreSQL..."
-	go run cmd/migration/main.go -up -postgres
+	go run cmd/migration/main.go -up
 	@echo "Миграции PostgreSQL успешно применены."
 
-# Откатить только миграции PostgreSQL
-.PHONY: migrate-pg-down
-migrate-pg-down:
-	@echo "Откат миграций PostgreSQL..."
-	go run cmd/migration/main.go -down -postgres
+# Откатить последнюю миграцию (PostgreSQL)
+.PHONY: migrate-down
+migrate-down:
+	@echo "Откат миграции PostgreSQL..."
+	go run cmd/migration/main.go -down
 	@echo "Откат PostgreSQL успешно завершен."
-
-# Запустить только миграции Redis
-.PHONY: migrate-redis-up
-migrate-redis-up:
-	@echo "Применение миграций Redis..."
-	go run cmd/migration/main.go -up -redis
-	@echo "Миграции Redis успешно применены."
-
-# Откатить только миграции Redis
-.PHONY: migrate-redis-down
-migrate-redis-down:
-	@echo "Откат миграций Redis..."
-	go run cmd/migration/main.go -down -redis
-	@echo "Откат Redis успешно завершен."
 
 # Создать новую миграцию PostgreSQL
 .PHONY: migrate-create
@@ -74,3 +44,12 @@ migrate-build:
 	@echo "Сборка утилиты миграции..."
 	go build -o bin/migrate cmd/migration/main.go
 	@echo "Утилита собрана в bin/migrate"
+
+# Миграции через docker-compose
+.PHONY: docker-migrate-up
+docker-migrate-up:
+	docker-compose run --rm service make migrate-up
+
+.PHONY: docker-migrate-down
+docker-migrate-down:
+	docker-compose run --rm service make migrate-down
