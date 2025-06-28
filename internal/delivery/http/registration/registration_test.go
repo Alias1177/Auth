@@ -1,16 +1,17 @@
 package registration
 
 import (
-	"Auth/config"
-	"Auth/internal/entity"
-	"Auth/pkg/kafka"
-	"Auth/pkg/logger"
 	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/Alias1177/Auth/config"
+	"github.com/Alias1177/Auth/internal/entity"
+	"github.com/Alias1177/Auth/pkg/kafka"
+	"github.com/Alias1177/Auth/pkg/logger"
 
 	"github.com/stretchr/testify/assert"
 )

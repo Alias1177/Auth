@@ -1,6 +1,6 @@
 package usecase
 
-import "Auth/internal/entity"
+import "github.com/Alias1177/Auth/internal/entity"
 
 // TokenManager interface реализация по JWT
 type TokenManager interface {

@@ -1,14 +1,15 @@
 package main
 
 import (
-	"Auth/config"
-	"Auth/db/migrations/manager"
-	"Auth/internal/infrastructure/postgres/connect"
-	"Auth/pkg/appcontext"
-	"Auth/pkg/logger"
 	"context"
 	"flag"
 	"log"
+
+	"github.com/Alias1177/Auth/config"
+	"github.com/Alias1177/Auth/db/migrations/manager"
+	"github.com/Alias1177/Auth/internal/infrastructure/postgres/connect"
+	"github.com/Alias1177/Auth/pkg/appcontext"
+	"github.com/Alias1177/Auth/pkg/logger"
 )
 
 func main() {

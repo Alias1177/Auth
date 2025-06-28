@@ -1,13 +1,14 @@
 package redis
 
 import (
-	"Auth/internal/entity"
-	"Auth/pkg/logger"
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/redis/go-redis/v9"
 	"strings"
+
+	"github.com/Alias1177/Auth/internal/entity"
+	"github.com/Alias1177/Auth/pkg/logger"
+	"github.com/redis/go-redis/v9"
 )
 
 type RedisRepository struct {

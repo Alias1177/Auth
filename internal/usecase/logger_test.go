@@ -1,8 +1,9 @@
 package usecase_test
 
 import (
-	"Auth/internal/usecase"
 	"testing"
+
+	"github.com/Alias1177/Auth/internal/usecase"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

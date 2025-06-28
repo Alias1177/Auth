@@ -1,15 +1,16 @@
 package middleware
 
 import (
-	"Auth/pkg/logger"
 	"bufio"
 	"context"
 	"errors"
-	"github.com/google/uuid"
 	"net"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/Alias1177/Auth/pkg/logger"
+	"github.com/google/uuid"
 )
 
 // RequestIDKey is the key for request ID in the context.

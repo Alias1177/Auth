@@ -1,11 +1,12 @@
 package middleware
 
 import (
-	"Auth/internal/usecase"
 	"context"
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/Alias1177/Auth/internal/usecase"
 )
 
 type contextKey string

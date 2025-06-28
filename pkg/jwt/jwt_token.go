@@ -1,10 +1,11 @@
 package jwt
 
 import (
-	"Auth/config"
-	"Auth/internal/entity"
 	"errors"
 	"fmt"
+
+	"github.com/Alias1177/Auth/config"
+	"github.com/Alias1177/Auth/internal/entity"
 	"github.com/golang-jwt/jwt/v5"
 )
 

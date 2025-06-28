@@ -1,13 +1,14 @@
 package manager
 
 import (
-	"Auth/pkg/logger"
-	"Auth/pkg/migration"
-	"Auth/pkg/migration/postgres"
-	redis_migration "Auth/pkg/migration/redis"
 	"context"
 	"errors"
 	"fmt"
+
+	"github.com/Alias1177/Auth/pkg/logger"
+	"github.com/Alias1177/Auth/pkg/migration"
+	"github.com/Alias1177/Auth/pkg/migration/postgres"
+	redis_migration "github.com/Alias1177/Auth/pkg/migration/redis"
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
 )

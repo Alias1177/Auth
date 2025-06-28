@@ -1,14 +1,16 @@
 package logger
 
 import (
-	"Auth/internal/usecase"
 	"fmt"
 	"os"
+
+	"github.com/Alias1177/Auth/internal/usecase"
+
+	liblog "log"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
-	liblog "log"
 )
 
 // ColorConfig defines color settings for console output.

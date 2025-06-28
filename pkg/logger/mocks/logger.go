@@ -5,8 +5,8 @@
 package mock_logger
 
 import (
-	usecase "Auth/internal/usecase"
-	logger "Auth/pkg/logger"
+	usecase "github.com/Alias1177/Auth/internal/usecase"
+	logger "github.com/Alias1177/Auth/pkg/logger"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"

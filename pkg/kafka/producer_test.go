@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"Auth/pkg/logger"
+	"github.com/Alias1177/Auth/pkg/logger"
 )
 
 // MockKafkaWriter реализует интерфейс Writer

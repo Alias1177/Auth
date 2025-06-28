@@ -1,10 +1,11 @@
 package redis_migration
 
 import (
-	"Auth/pkg/logger"
-	"Auth/pkg/migration"
 	"context"
 	"fmt"
+
+	"github.com/Alias1177/Auth/pkg/logger"
+	"github.com/Alias1177/Auth/pkg/migration"
 	"github.com/redis/go-redis/v9"
 )
 

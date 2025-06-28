@@ -1,12 +1,13 @@
 package redis_migration
 
 import (
-	"Auth/pkg/logger"
 	"context"
+	"testing"
+
+	"github.com/Alias1177/Auth/pkg/logger"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func setupTestRedis() (*redis.Client, func()) {

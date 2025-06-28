@@ -1,17 +1,18 @@
 package registration
 
 import (
-	"Auth/config"
-	"Auth/internal/entity"
-	"Auth/internal/usecase"
-	"Auth/pkg/kafka"
-	"Auth/pkg/logger"
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"strconv"
+
+	"github.com/Alias1177/Auth/config"
+	"github.com/Alias1177/Auth/internal/entity"
+	"github.com/Alias1177/Auth/internal/usecase"
+	"github.com/Alias1177/Auth/pkg/kafka"
+	"github.com/Alias1177/Auth/pkg/logger"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type RegistrationHandler struct {

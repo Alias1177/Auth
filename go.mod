@@ -1,4 +1,4 @@
-module Auth
+module github.com/Alias1177/Auth
 
 go 1.24.0
 
