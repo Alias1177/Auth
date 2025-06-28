@@ -32,7 +32,7 @@ func TestRedisMigrator_Up(t *testing.T) {
 	client, cleanup := setupTestRedis()
 	defer cleanup()
 
-	logInstance, _ := logger.NewSimpleLogger("info")
+	logInstance, _ := logger.New("info")
 	migrator := NewRedisMigrator(client, logInstance)
 
 	// 1. Проверяем, что ключа еще нет
@@ -64,7 +64,7 @@ func TestRedisMigrator_Down(t *testing.T) {
 	client, cleanup := setupTestRedis()
 	defer cleanup()
 
-	logInstance, _ := logger.NewSimpleLogger("info")
+	logInstance, _ := logger.New("info")
 	migrator := NewRedisMigrator(client, logInstance)
 
 	// Предварительно заполняем Redis

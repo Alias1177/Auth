@@ -68,7 +68,7 @@ func TestNewProducer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			log, err := logger.NewSimpleLogger("info")
+			log, err := logger.New("info")
 			if err != nil {
 				t.Fatalf("Failed to create logger: %v", err)
 			}

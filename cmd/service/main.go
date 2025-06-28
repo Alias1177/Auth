@@ -31,7 +31,7 @@ func main() {
 
 	ctx := context.Background()
 
-	logInstance, err := logger.NewSimpleLogger("info")
+	logInstance, err := logger.New("info")
 	if err != nil {
 		log.Fatal("Failed to initialize logger:", err)
 	}
