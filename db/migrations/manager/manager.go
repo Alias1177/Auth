@@ -1,13 +1,12 @@
 package manager
 
 import (
-	"Auth/pkg/logger"
-	"Auth/pkg/migration"
-	"Auth/pkg/migration/postgres"
 	"context"
 	"errors"
 	"fmt"
-
+	"github.com/Alias1177/Auth/pkg/logger"
+	"github.com/Alias1177/Auth/pkg/migration"
+	"github.com/Alias1177/Auth/pkg/migration/postgres"
 	"github.com/jmoiron/sqlx"
 )
 
