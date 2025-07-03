@@ -122,3 +122,7 @@ func (j *JWTTokenManager) RefreshTokens(refreshToken string) (string, string, er
 
 	return newAccessToken, newRefreshToken, nil
 }
+
+func (j *JWTTokenManager) ValidateRefreshToken(token string) (*domain.UserClaims, error) {
+	return j.validateToken(token, false)
+}
