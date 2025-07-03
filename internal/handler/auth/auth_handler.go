@@ -6,7 +6,7 @@ import (
 
 	"github.com/Alias1177/Auth/internal/config"
 	"github.com/Alias1177/Auth/internal/domain"
-	"github.com/Alias1177/Auth/internal/usecase"
+	"github.com/Alias1177/Auth/internal/service"
 	"github.com/Alias1177/Auth/pkg/errors"
 	"github.com/Alias1177/Auth/pkg/httputil"
 	"github.com/Alias1177/Auth/pkg/logger"
@@ -14,13 +14,13 @@ import (
 )
 
 type AuthHandler struct {
-	tokenManager   usecase.TokenManager
+	tokenManager   service.TokenManager
 	jwtConfig      config.JWTConfig
-	userRepository usecase.UserRepository
+	userRepository service.UserRepository
 	logger         *logger.Logger
 }
 
-func NewAuthHandler(manager usecase.TokenManager, cfg config.JWTConfig, repo usecase.UserRepository, log *logger.Logger) *AuthHandler {
+func NewAuthHandler(manager service.TokenManager, cfg config.JWTConfig, repo service.UserRepository, log *logger.Logger) *AuthHandler {
 	return &AuthHandler{
 		tokenManager:   manager,
 		jwtConfig:      cfg,

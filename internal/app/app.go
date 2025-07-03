@@ -8,9 +8,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Alias1177/Auth/config"
 	"github.com/Alias1177/Auth/internal/app/container"
-	"github.com/Alias1177/Auth/internal/migration"
+	"github.com/Alias1177/Auth/internal/config"
 	"github.com/Alias1177/Auth/internal/server"
 	"github.com/Alias1177/Auth/pkg/logger"
 )
@@ -85,7 +84,7 @@ func (a *App) Run() error {
 
 // runMigrationMode запускает приложение в режиме миграций
 func (a *App) runMigrationMode() error {
-	migrationApp := migration.New()
+	migrationApp := NewMigrationApp()
 	return migrationApp.Run()
 }
 

@@ -1,4 +1,4 @@
-package usecase
+package service
 
 import (
 	"context"
@@ -59,6 +59,9 @@ func (m *MockTokenManager) ValidateAccessToken(token string) (*domain.UserClaims
 	}
 	return claims, args.Error(1)
 }
+
+// --- MockLogger ---
+var _ Logger = (*MockLogger)(nil)
 
 type MockLogger struct {
 	mock.Mock

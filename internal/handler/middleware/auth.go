@@ -6,14 +6,14 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Alias1177/Auth/internal/usecase"
+	"github.com/Alias1177/Auth/internal/service"
 )
 
 type contextKey string
 
 const CtxUserKey contextKey = "user"
 
-func JWTAuthMiddleware(manager usecase.TokenManager) func(http.Handler) http.Handler {
+func JWTAuthMiddleware(manager service.TokenManager) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			var token string

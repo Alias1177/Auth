@@ -1,4 +1,3 @@
-// internal/repository/repository.go
 package repository
 
 import (
@@ -6,18 +5,18 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/Alias1177/Auth/internal/entity"
-	"github.com/Alias1177/Auth/internal/usecase"
+	"github.com/Alias1177/Auth/internal/domain"
+	"github.com/Alias1177/Auth/internal/service"
 )
 
 // Repository представляет собой агрегатор репозиториев PostgreSQL и Redis.
 type Repository struct {
-	postgres usecase.UserRepository
-	redis    usecase.UserCache
-	log      usecase.Logger
+	postgres service.UserRepository
+	redis    service.UserCache
+	log      service.Logger
 }
 
-func NewRepository(pg usecase.UserRepository, redis usecase.UserCache, log usecase.Logger) *Repository {
+func NewRepository(pg service.UserRepository, redis service.UserCache, log service.Logger) *Repository {
 	return &Repository{
 		postgres: pg,
 		redis:    redis,
@@ -26,7 +25,7 @@ func NewRepository(pg usecase.UserRepository, redis usecase.UserCache, log useca
 }
 
 // GetUser получает пользователя по его ID, используя кэш Redis и базу PostgreSQL.
-func (r *Repository) GetUser(ctx context.Context, id int) (*entity.User, error) {
+func (r *Repository) GetUser(ctx context.Context, id int) (*domain.User, error) {
 	// Сначала пробуем получить пользователя из Redis.
 	user, err := r.redis.GetUser(ctx, id)
 	if err == nil {
@@ -49,7 +48,7 @@ func (r *Repository) GetUser(ctx context.Context, id int) (*entity.User, error) 
 }
 
 // CreateUser создает нового пользователя в PostgreSQL и кэше Redis.
-func (r *Repository) CreateUser(ctx context.Context, user *entity.User) error {
+func (r *Repository) CreateUser(ctx context.Context, user *domain.User) error {
 	// Проверяем, существует ли пользователь с таким email
 	_, err := r.postgres.GetUserByEmail(ctx, user.Email)
 	if err == nil {
@@ -72,16 +71,16 @@ func (r *Repository) CreateUser(ctx context.Context, user *entity.User) error {
 }
 
 // GetUserByID получение пользователя по ID (прямая прокси без изменения логики)
-func (r *Repository) GetUserByID(ctx context.Context, id int) (*entity.User, error) {
+func (r *Repository) GetUserByID(ctx context.Context, id int) (*domain.User, error) {
 	return r.postgres.GetUserByID(ctx, id)
 }
 
 // GetUserByEmail получение пользователя по Email (прямая прокси без изменения логики)
-func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*entity.User, error) {
+func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
 	return r.postgres.GetUserByEmail(ctx, email)
 }
 
 // UpdateUser обновление данных пользователя (прямая прокси без изменения логики)
-func (r *Repository) UpdateUser(ctx context.Context, user *entity.User) error {
+func (r *Repository) UpdateUser(ctx context.Context, user *domain.User) error {
 	return r.postgres.UpdateUser(ctx, user)
 }

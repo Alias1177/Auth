@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/Alias1177/Auth/internal/app/container"
-	"github.com/Alias1177/Auth/internal/infrastructure/middleware"
+	"github.com/Alias1177/Auth/internal/handler/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

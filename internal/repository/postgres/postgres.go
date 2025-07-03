@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Alias1177/Auth/internal/entity"
+	"github.com/Alias1177/Auth/internal/domain"
 	"github.com/Alias1177/Auth/internal/repository/redis"
 	"github.com/Alias1177/Auth/pkg/logger"
 	"github.com/jmoiron/sqlx"
@@ -29,8 +29,8 @@ func NewPostgresRepository(db *sqlx.DB, redisRepo *redis.RedisRepository, log *l
 }
 
 // GetUserByID получает пользователя из базы данных по ID.
-func (r *PostgresRepository) GetUserByID(ctx context.Context, id int) (*entity.User, error) {
-	var user entity.User
+func (r *PostgresRepository) GetUserByID(ctx context.Context, id int) (*domain.User, error) {
+	var user domain.User
 	query := `SELECT id, username, email, password FROM UsersLog WHERE id = $1`
 	err := r.db.GetContext(ctx, &user, query, id)
 	if err != nil {
@@ -41,9 +41,9 @@ func (r *PostgresRepository) GetUserByID(ctx context.Context, id int) (*entity.U
 }
 
 // GetUserByEmail получает пользователя из базы данных по email.
-func (r *PostgresRepository) GetUserByEmail(ctx context.Context, email string) (*entity.User, error) {
+func (r *PostgresRepository) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
 	query := "SELECT id, username, email, password FROM UsersLog WHERE email = $1"
-	user := entity.User{}
+	user := domain.User{}
 
 	err := r.db.QueryRowContext(ctx, query, email).
 		Scan(&user.ID, &user.UserName, &user.Email, &user.Password)
@@ -61,7 +61,7 @@ func (r *PostgresRepository) GetUserByEmail(ctx context.Context, email string) (
 }
 
 // CreateUser создает нового пользователя в базе данных.
-func (r *PostgresRepository) CreateUser(ctx context.Context, user *entity.User) error {
+func (r *PostgresRepository) CreateUser(ctx context.Context, user *domain.User) error {
 	query := `INSERT INTO UsersLog (username, email, password) 
              VALUES ($1, $2, $3) 
              RETURNING id`
@@ -70,7 +70,7 @@ func (r *PostgresRepository) CreateUser(ctx context.Context, user *entity.User) 
 
 // UpdateUser обновляет данные существующего пользователя в базе данных.
 
-func (r *PostgresRepository) UpdateUser(ctx context.Context, user *entity.User) error {
+func (r *PostgresRepository) UpdateUser(ctx context.Context, user *domain.User) error {
 	query := `UPDATE UsersLog 
               SET username = $1, email = $2, password = $3, updated_at = NOW()
               WHERE id = $4

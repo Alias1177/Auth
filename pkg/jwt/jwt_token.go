@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Alias1177/Auth/config"
-	"github.com/Alias1177/Auth/internal/entity"
+	"github.com/Alias1177/Auth/internal/config"
+	"github.com/Alias1177/Auth/internal/domain"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -24,7 +24,7 @@ func NewJWTTokenManager(cfg config.JWTConfig) *JWTTokenManager {
 	}
 }
 
-func (j *JWTTokenManager) GenerateAccessToken(userClaims entity.UserClaims) (string, error) {
+func (j *JWTTokenManager) GenerateAccessToken(userClaims domain.UserClaims) (string, error) {
 	exp := time.Now().Add(15 * time.Minute).Unix()
 	tokenClaims := jwt.MapClaims{
 		"sub":   userClaims.UserID,
@@ -35,11 +35,11 @@ func (j *JWTTokenManager) GenerateAccessToken(userClaims entity.UserClaims) (str
 	return token.SignedString([]byte(j.secret))
 }
 
-func (j *JWTTokenManager) ValidateAccessToken(token string) (*entity.UserClaims, error) {
+func (j *JWTTokenManager) ValidateAccessToken(token string) (*domain.UserClaims, error) {
 	return j.validateToken(token, true)
 }
 
-func (j *JWTTokenManager) validateToken(token string, isAccess bool) (*entity.UserClaims, error) {
+func (j *JWTTokenManager) validateToken(token string, isAccess bool) (*domain.UserClaims, error) {
 	parsedToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
@@ -86,13 +86,13 @@ func (j *JWTTokenManager) validateToken(token string, isAccess bool) (*entity.Us
 		return nil, errors.New("missing or invalid 'email' claim")
 	}
 
-	return &entity.UserClaims{
+	return &domain.UserClaims{
 		UserID: userID,
 		Email:  email,
 	}, nil
 }
 
-func (j *JWTTokenManager) GenerateRefreshToken(userClaims entity.UserClaims) (string, error) {
+func (j *JWTTokenManager) GenerateRefreshToken(userClaims domain.UserClaims) (string, error) {
 	exp := time.Now().Add(7 * 24 * time.Hour).Unix()
 	claims := jwt.MapClaims{
 		"sub":   userClaims.UserID,

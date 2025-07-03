@@ -4,22 +4,22 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/Alias1177/Auth/internal/entity"
-	"github.com/Alias1177/Auth/internal/usecase"
-	"github.com/Alias1177/Auth/pkg/crypto"
+	"github.com/Alias1177/Auth/internal/domain"
+	"github.com/Alias1177/Auth/internal/service"
 	"github.com/Alias1177/Auth/pkg/errors"
 	"github.com/Alias1177/Auth/pkg/httputil"
 	"github.com/Alias1177/Auth/pkg/logger"
+	crypto "github.com/Alias1177/Auth/pkg/security"
 	"github.com/go-chi/chi/v5"
 )
 
 // UserHandler управляет запросами, связанными с пользователями.
 type UserHandler struct {
-	userRepository usecase.UserRepository
+	userRepository service.UserRepository
 	logger         *logger.Logger
 }
 
-func NewUserHandler(userRepo usecase.UserRepository, log *logger.Logger) *UserHandler {
+func NewUserHandler(userRepo service.UserRepository, log *logger.Logger) *UserHandler {
 	return &UserHandler{
 		userRepository: userRepo,
 		logger:         log,
@@ -38,7 +38,7 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Декодирование JSON запроса
-	var user entity.User
+	var user domain.User
 	if err := httputil.DecodeJSON(r, &user, h.logger); err != nil {
 		httputil.JSONError(w, http.StatusBadRequest, "Некорректный запрос")
 		return
