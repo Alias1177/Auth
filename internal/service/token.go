@@ -10,4 +10,5 @@ type TokenManager interface {
 	ValidateAccessToken(token string) (*domain.UserClaims, error)
 	GenerateRefreshToken(userClaims domain.UserClaims) (string, error)
 	RefreshTokens(refreshToken string) (string, string, error)
+	ValidateRefreshToken(token string) (*domain.UserClaims, error)
 }

@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/Alias1177/Auth/internal/domain"
-	"github.com/Alias1177/Auth/internal/handler/middleware"
+	"github.com/Alias1177/Auth/internal/middleware"
 	"github.com/Alias1177/Auth/pkg/errors"
 	"github.com/Alias1177/Auth/pkg/httputil"
 )

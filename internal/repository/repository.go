@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"github.com/Alias1177/Auth/internal/domain"
 	"github.com/Alias1177/Auth/internal/service"
@@ -40,8 +39,7 @@ func (r *Repository) GetUser(ctx context.Context, id int) (*domain.User, error) 
 
 	// Сохраняем данные пользователя в Redis для будущих запросов.
 	if err := r.redis.SaveUser(ctx, user); err != nil {
-		// Логируем ошибку сохранения в Redis, но не прерываем выполнение.
-		slog.Error("failed to save user to Redis", "error", err)
+		r.log.Errorw("Failed to save user to Redis cache", "error", err, "user_id", user.ID)
 	}
 
 	return user, nil
@@ -62,9 +60,8 @@ func (r *Repository) CreateUser(ctx context.Context, user *domain.User) error {
 
 	// Сохраняем в Redis
 	if err := r.redis.SaveUser(ctx, user); err != nil {
-		// Если не удалось сохранить в Redis, это критическая ошибка,
-		// так как мы должны получать данные только из Redis
-		r.log.Warnw("Failed to save user to Redis cache", "error", err, "user_id", user.ID)
+		r.log.Errorw("Failed to save user to Redis cache (critical)", "error", err, "user_id", user.ID)
+		return fmt.Errorf("failed to save user to Redis cache: %w", err)
 	}
 
 	return nil
