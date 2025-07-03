@@ -97,11 +97,21 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	refreshToken, err := h.tokenManager.GenerateRefreshToken(claims)
+	if err != nil {
+		errors.HandleInternalError(w, err, h.logger, "generate refresh token")
+		return
+	}
 	// Установка токена в куки
 	httputil.SetTokenCookie(w, "access-token", accessToken)
 
 	// Отправка успешного ответа
-	response := httputil.SuccessResponse("Пользователь успешно зарегистрирован")
+	response := map[string]string{
+		"message":       "Пользователь успешно зарегистрирован",
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+	}
+
 	if err := httputil.JSONResponse(w, http.StatusCreated, response); err != nil {
 		errors.HandleInternalError(w, err, h.logger, "encode response")
 	}
