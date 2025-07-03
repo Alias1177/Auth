@@ -1,30 +1,30 @@
-package registration
+package auth
 
 import (
 	"net/http"
 	"strconv"
 
-	"github.com/Alias1177/Auth/config"
-	"github.com/Alias1177/Auth/internal/entity"
-	"github.com/Alias1177/Auth/internal/usecase"
-	"github.com/Alias1177/Auth/pkg/crypto"
+	"github.com/Alias1177/Auth/internal/config"
+	"github.com/Alias1177/Auth/internal/domain"
+	"github.com/Alias1177/Auth/internal/service"
 	"github.com/Alias1177/Auth/pkg/errors"
 	"github.com/Alias1177/Auth/pkg/httputil"
 	"github.com/Alias1177/Auth/pkg/kafka"
 	"github.com/Alias1177/Auth/pkg/logger"
+	crypto "github.com/Alias1177/Auth/pkg/security"
 )
 
 type RegistrationHandler struct {
-	userRepository usecase.UserRepository
-	tokenManager   usecase.TokenManager
+	userRepository service.UserRepository
+	tokenManager   service.TokenManager
 	jwtConfig      config.JWTConfig
 	logger         *logger.Logger
 	kafkaProducer  *kafka.Producer
 }
 
 func NewRegistrationHandler(
-	repo usecase.UserRepository,
-	manager usecase.TokenManager,
+	repo service.UserRepository,
+	manager service.TokenManager,
 	cfg config.JWTConfig,
 	log *logger.Logger,
 	producer *kafka.Producer,
@@ -67,7 +67,7 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Создание пользователя
-	newUser := entity.User{
+	newUser := domain.User{
 		Email:    req.Email,
 		UserName: req.Username,
 		Password: hashedPassword,
@@ -86,7 +86,7 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Генерация JWT токена
-	claims := entity.UserClaims{
+	claims := domain.UserClaims{
 		UserID: strconv.Itoa(newUser.ID),
 		Email:  newUser.Email,
 	}

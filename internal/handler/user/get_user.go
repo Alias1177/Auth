@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/Alias1177/Auth/internal/entity"
-	"github.com/Alias1177/Auth/internal/infrastructure/middleware"
+	"github.com/Alias1177/Auth/internal/domain"
+	"github.com/Alias1177/Auth/internal/handler/middleware"
 	"github.com/Alias1177/Auth/pkg/errors"
 	"github.com/Alias1177/Auth/pkg/httputil"
 )
@@ -13,7 +13,7 @@ import (
 // GetUserInfoHandler отвечает за получение информации о пользователе.
 func (h *UserHandler) GetUserInfoHandler(w http.ResponseWriter, r *http.Request) {
 	// Получаем информацию о пользователе из контекста (добавленную middleware)
-	userClaims, ok := r.Context().Value(middleware.CtxUserKey).(*entity.UserClaims)
+	userClaims, ok := r.Context().Value(middleware.CtxUserKey).(*domain.UserClaims)
 	if !ok {
 		errors.HandleInternalError(w, nil, h.logger, "get user claims from context")
 		return

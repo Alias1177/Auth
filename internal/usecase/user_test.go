@@ -1,8 +1,8 @@
 package usecase_test
 
 import (
-	"github.com/Alias1177/Auth/internal/entity"
-	//"Auth/internal/usecase"
+	"github.com/Alias1177/Auth/internal/domain"
+
 	"context"
 	"testing"
 	"time"
@@ -16,22 +16,22 @@ type mockUserRepo struct {
 	mock.Mock
 }
 
-func (m *mockUserRepo) CreateUser(ctx context.Context, user *entity.User) error {
+func (m *mockUserRepo) CreateUser(ctx context.Context, user *domain.User) error {
 	args := m.Called(ctx, user)
 	return args.Error(0)
 }
 
-func (m *mockUserRepo) GetUserByID(ctx context.Context, id int) (*entity.User, error) {
+func (m *mockUserRepo) GetUserByID(ctx context.Context, id int) (*domain.User, error) {
 	args := m.Called(ctx, id)
-	return args.Get(0).(*entity.User), args.Error(1)
+	return args.Get(0).(*domain.User), args.Error(1)
 }
 
-func (m *mockUserRepo) GetUserByEmail(ctx context.Context, email string) (*entity.User, error) {
+func (m *mockUserRepo) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
 	args := m.Called(ctx, email)
-	return args.Get(0).(*entity.User), args.Error(1)
+	return args.Get(0).(*domain.User), args.Error(1)
 }
 
-func (m *mockUserRepo) UpdateUser(ctx context.Context, user *entity.User) error {
+func (m *mockUserRepo) UpdateUser(ctx context.Context, user *domain.User) error {
 	args := m.Called(ctx, user)
 	return args.Error(0)
 }
@@ -40,7 +40,7 @@ func TestUserRepository(t *testing.T) {
 	mockRepo := new(mockUserRepo)
 	ctx := context.TODO()
 
-	user := &entity.User{
+	user := &domain.User{
 		ID:        1,
 		UserName:  "vladimir",
 		Email:     "vladimir@example.com",

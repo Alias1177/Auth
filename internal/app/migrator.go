@@ -1,29 +1,29 @@
-package migration
+package app
 
 import (
 	"context"
 	"flag"
 
-	"github.com/Alias1177/Auth/config"
 	"github.com/Alias1177/Auth/db/migrations/manager"
-	"github.com/Alias1177/Auth/internal/infrastructure/postgres/connect"
+	"github.com/Alias1177/Auth/internal/config"
 	"github.com/Alias1177/Auth/pkg/appcontext"
+	"github.com/Alias1177/Auth/pkg/database/connect"
 	"github.com/Alias1177/Auth/pkg/logger"
 )
 
-// App представляет приложение для миграций
-type App struct {
+// MigrationApp представляет приложение для миграций
+type MigrationApp struct {
 	logger *logger.Logger
 	config *config.Config
 }
 
-// New создает новое приложение для миграций
-func New() *App {
-	return &App{}
+// NewMigrationApp создает новое приложение для миграций
+func NewMigrationApp() *MigrationApp {
+	return &MigrationApp{}
 }
 
 // Run запускает приложение миграций
-func (m *App) Run() error {
+func (m *MigrationApp) Run() error {
 	// Определение флагов командной строки
 	var (
 		up             = flag.Bool("up", false, "Запустить миграции вверх")
@@ -56,7 +56,7 @@ func (m *App) Run() error {
 }
 
 // initLogger инициализирует логгер
-func (m *App) initLogger() error {
+func (m *MigrationApp) initLogger() error {
 	logger, err := logger.New("info")
 	if err != nil {
 		return err
@@ -66,7 +66,7 @@ func (m *App) initLogger() error {
 }
 
 // loadConfig загружает конфигурацию
-func (m *App) loadConfig() error {
+func (m *MigrationApp) loadConfig() error {
 	cfg, err := config.Load(".env")
 	if err != nil {
 		m.logger.Fatalw("Failed to load config:", "error", err)
@@ -77,7 +77,7 @@ func (m *App) loadConfig() error {
 }
 
 // initDatabase инициализирует базу данных
-func (m *App) initDatabase(ctx context.Context) error {
+func (m *MigrationApp) initDatabase(ctx context.Context) error {
 	// Проверяем, существуют ли уже установленные соединения с БД
 	dbContext := appcontext.GetInstance()
 
@@ -102,7 +102,7 @@ func (m *App) initDatabase(ctx context.Context) error {
 }
 
 // closeDatabase закрывает соединения с базой данных
-func (m *App) closeDatabase() {
+func (m *MigrationApp) closeDatabase() {
 	dbContext := appcontext.GetInstance()
 	if dbContext != nil {
 		dbContext.Close()
@@ -110,7 +110,7 @@ func (m *App) closeDatabase() {
 }
 
 // runMigrations выполняет миграции
-func (m *App) runMigrations(ctx context.Context, up, down bool, migrationsPath string) error {
+func (m *MigrationApp) runMigrations(ctx context.Context, up, down bool, migrationsPath string) error {
 	dbContext := appcontext.GetInstance()
 
 	// Инициализация менеджера миграций

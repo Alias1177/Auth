@@ -1,4 +1,4 @@
-package usecase
+package service
 
 type Logger interface {
 	Infow(msg string, keysAndValues ...any)

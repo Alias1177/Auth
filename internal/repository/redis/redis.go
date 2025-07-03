@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Alias1177/Auth/internal/entity"
+	"github.com/Alias1177/Auth/internal/domain"
 	"github.com/Alias1177/Auth/pkg/logger"
 	"github.com/redis/go-redis/v9"
 )
@@ -25,7 +25,7 @@ func NewRedisRepository(client *redis.Client, log *logger.Logger) *RedisReposito
 }
 
 // GetUser получает данные пользователя из Redis по ID.
-func (r *RedisRepository) GetUser(ctx context.Context, id int) (*entity.User, error) {
+func (r *RedisRepository) GetUser(ctx context.Context, id int) (*domain.User, error) {
 	// Формируем ключ для хранения данных в Redis.
 	key := fmt.Sprintf("user:%d", id)
 
@@ -35,7 +35,7 @@ func (r *RedisRepository) GetUser(ctx context.Context, id int) (*entity.User, er
 		return nil, err
 	}
 
-	var user entity.User
+	var user domain.User
 	// Десериализуем данные из JSON.
 	if err := json.Unmarshal(data, &user); err != nil {
 		r.log.Errorw("Unmarshal err", "err", err)
@@ -45,7 +45,7 @@ func (r *RedisRepository) GetUser(ctx context.Context, id int) (*entity.User, er
 }
 
 // SaveUser сохраняет данные пользователя в Redis.
-func (r *RedisRepository) SaveUser(ctx context.Context, user *entity.User) error {
+func (r *RedisRepository) SaveUser(ctx context.Context, user *domain.User) error {
 	// Сериализуем данные пользователя в JSON.
 	jsonData, err := json.Marshal(user)
 	if err != nil {
@@ -61,7 +61,7 @@ func (r *RedisRepository) SaveUser(ctx context.Context, user *entity.User) error
 }
 
 // SetUser сохраняет данные пользователя в Redis (альтернативный метод).
-func (r *RedisRepository) SetUser(ctx context.Context, user *entity.User) error {
+func (r *RedisRepository) SetUser(ctx context.Context, user *domain.User) error {
 	key := fmt.Sprintf("user:%d", user.ID)
 	value, err := json.Marshal(user)
 	if err != nil {

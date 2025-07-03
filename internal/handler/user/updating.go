@@ -3,11 +3,11 @@ package user
 import (
 	"net/http"
 
-	"github.com/Alias1177/Auth/internal/usecase"
-	"github.com/Alias1177/Auth/pkg/crypto"
+	"github.com/Alias1177/Auth/internal/service"
 	"github.com/Alias1177/Auth/pkg/errors"
 	"github.com/Alias1177/Auth/pkg/httputil"
 	"github.com/Alias1177/Auth/pkg/logger"
+	crypto "github.com/Alias1177/Auth/pkg/security"
 )
 
 // ResetPasswordRequest структура для запроса обновления пароля
@@ -17,7 +17,7 @@ type ResetPasswordRequest struct {
 }
 
 // ResetPasswordHandler обработчик для сброса пароля по email
-func ResetPasswordHandler(userRepo usecase.UserRepository, log *logger.Logger) http.HandlerFunc {
+func ResetPasswordHandler(userRepo service.UserRepository, log *logger.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Декодирование JSON запроса
 		var req ResetPasswordRequest

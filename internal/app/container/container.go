@@ -3,17 +3,16 @@ package container
 import (
 	"context"
 
-	"github.com/Alias1177/Auth/config"
 	"github.com/Alias1177/Auth/db/migrations/manager"
-	"github.com/Alias1177/Auth/internal/delivery/http/registration"
-	"github.com/Alias1177/Auth/internal/delivery/http/registration/auth"
-	"github.com/Alias1177/Auth/internal/delivery/http/user"
-	"github.com/Alias1177/Auth/internal/infrastructure/postgres/connect"
+	"github.com/Alias1177/Auth/internal/config"
+	"github.com/Alias1177/Auth/internal/handler/auth"
+	"github.com/Alias1177/Auth/internal/handler/user"
 	"github.com/Alias1177/Auth/internal/repository"
 	"github.com/Alias1177/Auth/internal/repository/postgres"
 	"github.com/Alias1177/Auth/internal/repository/redis"
-	"github.com/Alias1177/Auth/internal/usecase"
+	"github.com/Alias1177/Auth/internal/service"
 	"github.com/Alias1177/Auth/pkg/appcontext"
+	"github.com/Alias1177/Auth/pkg/database/connect"
 	"github.com/Alias1177/Auth/pkg/jwt"
 	"github.com/Alias1177/Auth/pkg/kafka"
 	"github.com/Alias1177/Auth/pkg/logger"
@@ -30,12 +29,12 @@ type Container struct {
 	mainRepo     *repository.Repository
 
 	// Services
-	tokenManager  usecase.TokenManager
+	tokenManager  service.TokenManager
 	kafkaProducer *kafka.Producer
 
 	// Handlers
 	authHandler         *auth.AuthHandler
-	registrationHandler *registration.RegistrationHandler
+	registrationHandler *auth.RegistrationHandler
 	userHandler         *user.UserHandler
 }
 
@@ -128,7 +127,7 @@ func (c *Container) initHandlers() error {
 		c.logger,
 	)
 
-	c.registrationHandler = registration.NewRegistrationHandler(
+	c.registrationHandler = auth.NewRegistrationHandler(
 		c.mainRepo,
 		c.tokenManager,
 		c.config.JWT,
@@ -170,7 +169,7 @@ func (c *Container) GetAuthHandler() *auth.AuthHandler {
 	return c.authHandler
 }
 
-func (c *Container) GetRegistrationHandler() *registration.RegistrationHandler {
+func (c *Container) GetRegistrationHandler() *auth.RegistrationHandler {
 	return c.registrationHandler
 }
 
@@ -178,7 +177,7 @@ func (c *Container) GetUserHandler() *user.UserHandler {
 	return c.userHandler
 }
 
-func (c *Container) GetTokenManager() usecase.TokenManager {
+func (c *Container) GetTokenManager() service.TokenManager {
 	return c.tokenManager
 }
 

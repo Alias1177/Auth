@@ -3,7 +3,7 @@ package appcontext
 import (
 	"sync"
 
-	"github.com/Alias1177/Auth/internal/infrastructure/postgres/connect"
+	"github.com/Alias1177/Auth/pkg/database/connect"
 	"github.com/redis/go-redis/v9"
 )
 
