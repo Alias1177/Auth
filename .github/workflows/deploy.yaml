@@ -26,44 +26,44 @@ jobs:
           source: "."
           target: "/opt/auth-service/Auth"
 
-      - name: Check Docker installation
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            cd /opt/auth-service/Auth
+      # - name: Check Docker installation
+      #   uses: appleboy/ssh-action@master
+      #   with:
+      #     host: ${{ secrets.SSH_HOST }}
+      #     username: ${{ secrets.SSH_USERNAME }}
+      #     key: ${{ secrets.SSH_PRIVATE_KEY }}
+      #     script: |
+      #       cd /opt/auth-service/Auth
             
-            # Проверка версии Docker и Docker Compose
-            docker --version
-            which docker-compose || echo "docker-compose not found"
-            docker compose version || echo "docker compose not found"
+      #       # Проверка версии Docker и Docker Compose
+      #       docker --version
+      #       which docker-compose || echo "docker-compose not found"
+      #       docker compose version || echo "docker compose not found"
 
-      - name: Ensure Docker and docker-compose installed on server
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            # Установить Docker, если не установлен
-            if ! command -v docker &> /dev/null; then
-              echo "Docker not found. Installing..."
-              curl -fsSL https://get.docker.com | sh
-              sudo usermod -aG docker $USER
-              newgrp docker
-            else
-              echo "Docker already installed."
-            fi
-            # Установить docker-compose, если не установлен
-            if ! command -v docker-compose &> /dev/null; then
-              echo "docker-compose not found. Installing..."
-              sudo apt-get update
-              sudo apt-get install -y docker-compose
-            else
-              echo "docker-compose already installed."
-            fi
+      # - name: Ensure Docker and docker-compose installed on server
+      #   uses: appleboy/ssh-action@master
+      #   with:
+      #     host: ${{ secrets.SSH_HOST }}
+      #     username: ${{ secrets.SSH_USERNAME }}
+      #     key: ${{ secrets.SSH_PRIVATE_KEY }}
+      #     script: |
+      #       # Установить Docker, если не установлен
+      #       if ! command -v docker &> /dev/null; then
+      #         echo "Docker not found. Installing..."
+      #         curl -fsSL https://get.docker.com | sh
+      #         sudo usermod -aG docker $USER
+      #         newgrp docker
+      #       else
+      #         echo "Docker already installed."
+      #       fi
+      #       # Установить docker-compose, если не установлен
+      #       if ! command -v docker-compose &> /dev/null; then
+      #         echo "docker-compose not found. Installing..."
+      #         sudo apt-get update
+      #         sudo apt-get install -y docker-compose
+      #       else
+      #         echo "docker-compose already installed."
+      #       fi
 
       - name: Deploy on server
         uses: appleboy/ssh-action@master
