@@ -35,3 +35,26 @@ type RefreshRequest struct {
 type RefreshResponse struct {
 	AccessToken string `json:"access_token"`
 }
+
+// RequestPasswordResetRequest DTO для запроса сброса пароля
+type RequestPasswordResetRequest struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+// RequestPasswordResetResponse DTO для ответа запроса сброса пароля
+type RequestPasswordResetResponse struct {
+	Message string `json:"message"`
+	Code    string `json:"code,omitempty"` // Только в режиме разработки
+}
+
+// ConfirmPasswordResetRequest DTO для подтверждения сброса пароля
+type ConfirmPasswordResetRequest struct {
+	Email    string `json:"email" validate:"required,email"`
+	Code     string `json:"code" validate:"required,min=6,max=6"`
+	Password string `json:"password" validate:"required,min=8"`
+}
+
+// ConfirmPasswordResetResponse DTO для ответа подтверждения сброса пароля
+type ConfirmPasswordResetResponse struct {
+	Message string `json:"message"`
+}

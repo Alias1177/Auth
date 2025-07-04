@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/Alias1177/Auth/internal/domain"
 
@@ -108,6 +109,21 @@ func (m *MockUserCache) GetUser(ctx context.Context, id int) (*domain.User, erro
 
 func (m *MockUserCache) SaveUser(ctx context.Context, user *domain.User) error {
 	args := m.Called(ctx, user)
+	return args.Error(0)
+}
+
+func (m *MockUserCache) Get(ctx context.Context, key string) (string, error) {
+	args := m.Called(ctx, key)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockUserCache) SetWithTTL(ctx context.Context, key string, value string, ttl time.Duration) error {
+	args := m.Called(ctx, key, value, ttl)
+	return args.Error(0)
+}
+
+func (m *MockUserCache) Delete(ctx context.Context, key string) error {
+	args := m.Called(ctx, key)
 	return args.Error(0)
 }
 
