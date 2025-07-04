@@ -12,6 +12,7 @@ type UserService interface {
 	GetByEmail(ctx context.Context, email string) (*domain.User, error)
 	Create(ctx context.Context, user *domain.User) error
 	Update(ctx context.Context, user *domain.User) error
+	ResetPassword(ctx context.Context, email, password string) error
 }
 
 // AuthService интерфейс для аутентификации

@@ -29,3 +29,7 @@ func (s *UserServiceImpl) Create(ctx context.Context, user *domain.User) error {
 func (s *UserServiceImpl) Update(ctx context.Context, user *domain.User) error {
 	return s.repo.UpdateUser(ctx, user)
 }
+
+func (s *UserServiceImpl) ResetPassword(ctx context.Context, user *domain.User) error {
+	return s.repo.ResetPassword(ctx, user)
+}

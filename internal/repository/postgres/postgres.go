@@ -91,3 +91,10 @@ func (r *PostgresRepository) UpdateUser(ctx context.Context, user *domain.User) 
 
 	return nil
 }
+
+func (r *PostgresRepository) ResetPassword(ctx context.Context, user *domain.User) error {
+	query := `UPDATE UsersLog 
+		SET password = $1
+		WHERE email = $2`
+	return r.db.QueryRowxContext(ctx, query, user.Password, user.Email).Scan(&user.UpdatedAt)
+}

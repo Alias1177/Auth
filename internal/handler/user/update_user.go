@@ -27,7 +27,7 @@ func NewUserHandler(userRepo service.UserRepository, log *logger.Logger) *UserHa
 }
 
 // UpdateUser обновляет данные пользователя.
-func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 	// Получаем ID пользователя из URL параметра
 	userIDStr := chi.URLParam(r, "id")
 	userID, err := strconv.Atoi(userIDStr)
