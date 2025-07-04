@@ -62,6 +62,7 @@ func (s *Server) setupRoutes() {
 	registrationHandler := s.container.GetRegistrationHandler()
 	userHandler := s.container.GetUserHandler()
 	tokenManager := s.container.GetTokenManager()
+	passwordResetHandler := s.container.GetPasswordResetHandler()
 
 	// Публичные маршруты
 	s.router.Post("/login", authHandler.Login)
@@ -70,7 +71,6 @@ func (s *Server) setupRoutes() {
 	s.router.Post("/refresh-token", authHandler.Refresh)
 
 	// Новые безопасные ручки для сброса пароля
-	passwordResetHandler := s.container.GetPasswordResetHandler()
 	s.router.Post("/auth/request-password-reset", passwordResetHandler.RequestPasswordReset)
 	s.router.Post("/auth/confirm-password-reset", passwordResetHandler.ConfirmPasswordReset)
 
