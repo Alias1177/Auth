@@ -53,3 +53,12 @@ docker-migrate-up:
 .PHONY: docker-migrate-down
 docker-migrate-down:
 	docker-compose run --rm service make migrate-down
+
+.PHONY: up
+up:
+	docker-compose up -d --build
+
+.PHONY: down
+down:
+	docker-compose down -v 
+

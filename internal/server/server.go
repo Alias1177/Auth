@@ -68,11 +68,12 @@ func (s *Server) setupRoutes() {
 	s.router.Post("/register", registrationHandler.Register)
 	s.router.Handle("/metrics", promhttp.Handler())
 	s.router.Post("/refresh-token", authHandler.Refresh)
+	s.router.Post("/reset-password", userHandler.ResetPasswordHandler)
 
 	// Защищённые маршруты
 	s.router.Route("/user", func(r chi.Router) {
 		r.Use(middleware.JWTAuthMiddleware(tokenManager))
-		r.Patch("/{id}", userHandler.UpdateUser)
+		r.Patch("/{id}", userHandler.UpdateUserHandler)
 		r.Get("/me", userHandler.GetUserInfoHandler)
 	})
 }

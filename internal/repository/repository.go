@@ -81,3 +81,7 @@ func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*domain.
 func (r *Repository) UpdateUser(ctx context.Context, user *domain.User) error {
 	return r.postgres.UpdateUser(ctx, user)
 }
+
+func (r *Repository) ResetPassword(ctx context.Context, user *domain.User) error {
+	return r.postgres.ResetPassword(ctx, user)
+}
