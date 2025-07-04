@@ -54,7 +54,7 @@ services:
     container_name: prometheus
     restart: always
     ports:
-      - "9090:9090"  # Открываем порт для доступа извне
+      - "9091:9090"  # Открываем порт для доступа извне
     volumes:
       - "./prometheus.yml:/etc/prometheus/prometheus.yml"
       - "./alerts_rules.yml:/etc/prometheus/alert_rules.yml"
@@ -156,7 +156,7 @@ services:
       - '--path.rootfs=/rootfs'
       - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
     ports:
-      - "9100:9100"
+      - "9101:9100"
 #    network_mode: host  # для доступа ко всем метрикам хоста
     logging:
       driver: "json-file"
