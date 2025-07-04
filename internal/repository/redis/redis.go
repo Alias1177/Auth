@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Alias1177/Auth/internal/domain"
 	"github.com/Alias1177/Auth/pkg/logger"
@@ -99,4 +100,23 @@ func (r *RedisRepository) Close() error {
 
 	r.log.Infow("Redis connection closed successfully")
 	return nil
+}
+
+// Get получает значение по ключу из Redis
+func (r *RedisRepository) Get(ctx context.Context, key string) (string, error) {
+	value, err := r.client.Get(ctx, key).Result()
+	if err != nil {
+		return "", err
+	}
+	return value, nil
+}
+
+// SetWithTTL сохраняет значение в Redis с TTL
+func (r *RedisRepository) SetWithTTL(ctx context.Context, key string, value string, ttl time.Duration) error {
+	return r.client.Set(ctx, key, value, ttl).Err()
+}
+
+// Delete удаляет ключ из Redis
+func (r *RedisRepository) Delete(ctx context.Context, key string) error {
+	return r.client.Del(ctx, key).Err()
 }

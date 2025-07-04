@@ -68,7 +68,11 @@ func (s *Server) setupRoutes() {
 	s.router.Post("/register", registrationHandler.Register)
 	s.router.Handle("/metrics", promhttp.Handler())
 	s.router.Post("/refresh-token", authHandler.Refresh)
-	s.router.Post("/reset-password", userHandler.ResetPasswordHandler)
+
+	// Новые безопасные ручки для сброса пароля
+	passwordResetHandler := s.container.GetPasswordResetHandler()
+	s.router.Post("/auth/request-password-reset", passwordResetHandler.RequestPasswordReset)
+	s.router.Post("/auth/confirm-password-reset", passwordResetHandler.ConfirmPasswordReset)
 
 	// Защищённые маршруты
 	s.router.Route("/user", func(r chi.Router) {

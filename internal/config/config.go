@@ -1,9 +1,10 @@
 package config
 
 import (
+	"log"
+
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/redis/go-redis/v9"
-	"log"
 )
 
 // RedisConfig конфигурация для Redis
@@ -28,8 +29,15 @@ type KafkaConfig struct {
 	EmailTopic    string `env:"KAFKA_EMAIL_TOPIC" env-default:"user_registrations"`
 }
 
+// AppConfig конфигурация приложения
+type AppConfig struct {
+	Environment string `env:"APP_ENV" env-default:"development"`
+	Debug       bool   `env:"APP_DEBUG" env-default:"true"`
+}
+
 // Config общая конфигурация приложения
 type Config struct {
+	App      AppConfig
 	Database DatabaseConfig
 	Redis    RedisConfig
 	JWT      JWTConfig

@@ -16,6 +16,7 @@ import (
 	"github.com/Alias1177/Auth/pkg/jwt"
 	"github.com/Alias1177/Auth/pkg/kafka"
 	"github.com/Alias1177/Auth/pkg/logger"
+	"github.com/Alias1177/Auth/pkg/validator"
 )
 
 // Container содержит все зависимости приложения
@@ -33,9 +34,10 @@ type Container struct {
 	kafkaProducer *kafka.Producer
 
 	// Handlers
-	authHandler         *auth.AuthHandler
-	registrationHandler *auth.RegistrationHandler
-	userHandler         *user.UserHandler
+	authHandler          *auth.AuthHandler
+	registrationHandler  *auth.RegistrationHandler
+	userHandler          *user.UserHandler
+	passwordResetHandler *auth.PasswordResetHandler
 }
 
 // New создает новый контейнер зависимостей
@@ -137,6 +139,25 @@ func (c *Container) initHandlers() error {
 
 	c.userHandler = user.NewUserHandler(c.mainRepo, c.logger)
 
+	// Инициализация сервиса сброса пароля
+	emailService := service.NewEmailService(c.config, c.logger)
+	passwordResetService := service.NewPasswordResetService(
+		c.mainRepo,
+		c.redisRepo,
+		c.logger,
+		emailService,
+	)
+
+	// Валидатор
+	validator := validator.New()
+
+	c.passwordResetHandler = auth.NewPasswordResetHandler(
+		passwordResetService,
+		emailService,
+		validator,
+		c.logger,
+	)
+
 	return nil
 }
 
@@ -175,6 +196,10 @@ func (c *Container) GetRegistrationHandler() *auth.RegistrationHandler {
 
 func (c *Container) GetUserHandler() *user.UserHandler {
 	return c.userHandler
+}
+
+func (c *Container) GetPasswordResetHandler() *auth.PasswordResetHandler {
+	return c.passwordResetHandler
 }
 
 func (c *Container) GetTokenManager() service.TokenManager {
