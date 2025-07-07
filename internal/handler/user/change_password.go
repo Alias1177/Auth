@@ -9,17 +9,11 @@ import (
 	crypto "github.com/Alias1177/Auth/pkg/security"
 )
 
-// ResetPasswordRequest структура для запроса обновления пароля
-type ResetPasswordRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
 // ResetPasswordHandler обработчик для сброса пароля по email
 func (h *UserHandler) ResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Декодирование JSON запроса
-	var req ResetPasswordRequest
+	var req dto.ResetPasswordByEmailRequest
 	if err := httputil.DecodeJSON(r, &req, h.logger); err != nil {
 		httputil.JSONErrorWithID(w, http.StatusBadRequest, dto.MsgInvalidRequest)
 		return
