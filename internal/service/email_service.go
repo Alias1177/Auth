@@ -62,9 +62,7 @@ func (s *ProductionEmailService) SendPasswordResetCode(ctx context.Context, emai
 	s.logger.Infow("Password reset code sent via notification service",
 		"email", email,
 		"code", code)
-
-	// В продакшене не возвращаем код в ответе
-	return "", nil
+	return code, nil
 }
 
 func (s *ProductionEmailService) SendEmailRegistration(ctx context.Context, email, username string) error {

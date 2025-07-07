@@ -56,9 +56,12 @@ docker-migrate-down:
 
 .PHONY: up
 up:
-	docker-compose up -d --build
+	docker-compose down -v && docker-compose up -d --build
 
 .PHONY: down
 down:
 	docker-compose down -v 
 
+.PHONY: rebuild-api
+rebuild-api:
+	docker-compose build auth-app
