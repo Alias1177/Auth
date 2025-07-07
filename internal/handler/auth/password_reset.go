@@ -52,21 +52,15 @@ func (h *PasswordResetHandler) RequestPasswordReset(w http.ResponseWriter, r *ht
 		return
 	}
 
-	// Запрашиваем сброс пароля
-	if err := h.passwordResetService.RequestReset(r.Context(), req.Email); err != nil {
+	// Получаем сгенерированный код из сервиса
+	code, err := h.passwordResetService.RequestReset(r.Context(), req.Email)
+	if err != nil {
 		h.logger.Errorw("Failed to request password reset", "email", req.Email, "error", err)
 		errors.HandleInternalError(w, err, h.logger, "request password reset")
 		return
 	}
 
-	// Отправляем успешный ответ
-	response := dto.RequestPasswordResetResponse{}
-
-	// В режиме разработки также отправляем код для тестирования
-	if code, err := h.emailService.SendPasswordResetCode(r.Context(), req.Email, ""); err == nil && code != "" {
-		response.Code = code
-	}
-
+	response := dto.RequestPasswordResetResponse{Code: code}
 	if err := httputil.JSONSuccessWithID(w, http.StatusOK, dto.MsgSuccessPasswordResetRequested, response); err != nil {
 		errors.HandleInternalError(w, err, h.logger, "encode response")
 	}

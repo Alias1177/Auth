@@ -22,7 +22,7 @@ type PasswordResetData struct {
 
 // PasswordResetService интерфейс для работы со сбросом пароля
 type PasswordResetService interface {
-	RequestReset(ctx context.Context, email string) error
+	RequestReset(ctx context.Context, email string) (string, error)
 	ConfirmReset(ctx context.Context, email, code, newPassword string) error
 	ValidateCode(ctx context.Context, email, code string) error
 }
@@ -51,20 +51,20 @@ func NewPasswordResetService(
 }
 
 // RequestReset запрашивает сброс пароля для указанного email
-func (s *PasswordResetServiceImpl) RequestReset(ctx context.Context, email string) error {
+func (s *PasswordResetServiceImpl) RequestReset(ctx context.Context, email string) (string, error) {
 	// Проверяем существование пользователя
 	user, err := s.userRepo.GetUserByEmail(ctx, email)
 	if err != nil {
 		s.logger.Warnw("Password reset requested for non-existent email", "email", email)
 		// Не раскрываем информацию о существовании пользователя
-		return nil
+		return "", nil
 	}
 
 	// Генерируем код подтверждения
 	code, err := s.generateResetCode()
 	if err != nil {
 		s.logger.Errorw("Failed to generate reset code", "email", email, "error", err)
-		return errors.ErrInternal
+		return "", errors.ErrInternal
 	}
 
 	// Создаем данные для сброса пароля
@@ -79,40 +79,29 @@ func (s *PasswordResetServiceImpl) RequestReset(ctx context.Context, email strin
 	data, err := json.Marshal(resetData)
 	if err != nil {
 		s.logger.Errorw("Failed to marshal reset data", "email", email, "error", err)
-		return errors.ErrInternal
+		return "", errors.ErrInternal
 	}
 
 	// Сохраняем с TTL 15 минут
 	if err := s.userCache.SetWithTTL(ctx, key, string(data), 15*time.Minute); err != nil {
 		s.logger.Errorw("Failed to save reset code to cache", "email", email, "error", err)
-		return errors.ErrInternal
+		return "", errors.ErrInternal
 	}
 
 	// Отправляем код на email
-	sentCode, err := s.emailService.SendPasswordResetCode(ctx, email, code)
+	_, err = s.emailService.SendPasswordResetCode(ctx, email, code)
 	if err != nil {
 		s.logger.Errorw("Failed to send reset code email", "email", email, "error", err)
 		// Не возвращаем ошибку, чтобы не раскрывать информацию о существовании пользователя
-		return nil
-	}
-
-	// Сохраняем отправленный код для возврата в ответе (только в режиме разработки)
-	if sentCode != "" {
-		// В режиме разработки код будет возвращен в ответе
-		s.logger.Infow("Reset code will be returned in response (development mode)", "email", email)
+		return code, nil
 	}
 
 	s.logger.Infow("Password reset code sent", "email", email, "user_id", user.ID)
-	return nil
+	return code, nil
 }
 
 // ConfirmReset подтверждает сброс пароля с кодом
 func (s *PasswordResetServiceImpl) ConfirmReset(ctx context.Context, email, code, newPassword string) error {
-	// Валидируем новый пароль
-	if err := s.validatePassword(newPassword); err != nil {
-		return err
-	}
-
 	// Проверяем код
 	if err := s.ValidateCode(ctx, email, code); err != nil {
 		return err
@@ -206,42 +195,4 @@ func (s *PasswordResetServiceImpl) generateResetCode() (string, error) {
 		code += fmt.Sprintf("%d", num.Int64())
 	}
 	return code, nil
-}
-
-// validatePassword проверяет сложность пароля
-func (s *PasswordResetServiceImpl) validatePassword(password string) error {
-	if len(password) < 8 {
-		return errors.ErrInvalidPassword
-	}
-
-	var (
-		hasUpper   bool
-		hasLower   bool
-		hasNumber  bool
-		hasSpecial bool
-	)
-
-	for _, char := range password {
-		switch {
-		case 'A' <= char && char <= 'Z':
-			hasUpper = true
-		case 'a' <= char && char <= 'z':
-			hasLower = true
-		case '0' <= char && char <= '9':
-			hasNumber = true
-		case char == '!' || char == '@' || char == '#' || char == '$' || char == '%' ||
-			char == '^' || char == '&' || char == '*' || char == '(' || char == ')' ||
-			char == '-' || char == '_' || char == '+' || char == '=' || char == '[' ||
-			char == ']' || char == '{' || char == '}' || char == '|' || char == '\\' ||
-			char == ':' || char == ';' || char == '"' || char == '\'' || char == '<' ||
-			char == '>' || char == ',' || char == '.' || char == '?' || char == '/':
-			hasSpecial = true
-		}
-	}
-
-	if !hasUpper || !hasLower || !hasNumber || !hasSpecial {
-		return errors.ErrInvalidPassword
-	}
-
-	return nil
 }
