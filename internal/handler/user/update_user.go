@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/Alias1177/Auth/internal/domain"
+	"github.com/Alias1177/Auth/internal/dto"
 	"github.com/Alias1177/Auth/internal/service"
 	"github.com/Alias1177/Auth/pkg/errors"
 	"github.com/Alias1177/Auth/pkg/httputil"
@@ -33,14 +34,14 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 	userID, err := strconv.Atoi(userIDStr)
 	if err != nil {
 		h.logger.Errorw("Invalid user ID", "user_id", userIDStr, "error", err)
-		httputil.JSONError(w, http.StatusBadRequest, "Некорректный ID пользователя")
+		httputil.JSONErrorWithID(w, http.StatusBadRequest, dto.MsgInvalidUserID)
 		return
 	}
 
 	// Декодирование JSON запроса
 	var user domain.User
 	if err := httputil.DecodeJSON(r, &user, h.logger); err != nil {
-		httputil.JSONError(w, http.StatusBadRequest, "Некорректный запрос")
+		httputil.JSONErrorWithID(w, http.StatusBadRequest, dto.MsgInvalidRequest)
 		return
 	}
 
@@ -64,8 +65,7 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Отправка успешного ответа
-	response := httputil.SuccessResponse("Пользователь успешно обновлён")
-	if err := httputil.JSONResponse(w, http.StatusOK, response); err != nil {
+	if err := httputil.JSONSuccessWithID(w, http.StatusOK, dto.MsgSuccessUserUpdated, nil); err != nil {
 		errors.HandleInternalError(w, err, h.logger, "encode response")
 	}
 }

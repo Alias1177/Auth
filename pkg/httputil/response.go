@@ -23,6 +23,27 @@ func JSONError(w http.ResponseWriter, statusCode int, message string) {
 	})
 }
 
+// JSONErrorWithID отправляет JSON ошибку с id_message
+func JSONErrorWithID(w http.ResponseWriter, statusCode int, idMessage int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"error":      "error",
+		"id_message": idMessage,
+		"code":       statusCode,
+	})
+}
+
+// JSONSuccessWithID отправляет успешный JSON ответ с id_message
+func JSONSuccessWithID(w http.ResponseWriter, statusCode int, idMessage int, data interface{}) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	return json.NewEncoder(w).Encode(map[string]interface{}{
+		"id_message": idMessage,
+		"data":       data,
+	})
+}
+
 // DecodeJSON декодирует JSON из запроса
 func DecodeJSON(r *http.Request, dst interface{}, log *logger.Logger) error {
 	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {

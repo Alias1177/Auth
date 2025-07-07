@@ -3,6 +3,7 @@ package user
 import (
 	"net/http"
 
+	"github.com/Alias1177/Auth/internal/dto"
 	"github.com/Alias1177/Auth/pkg/errors"
 	"github.com/Alias1177/Auth/pkg/httputil"
 	crypto "github.com/Alias1177/Auth/pkg/security"
@@ -20,14 +21,14 @@ func (h *UserHandler) ResetPasswordHandler(w http.ResponseWriter, r *http.Reques
 	// Декодирование JSON запроса
 	var req ResetPasswordRequest
 	if err := httputil.DecodeJSON(r, &req, h.logger); err != nil {
-		httputil.JSONError(w, http.StatusBadRequest, "Некорректный запрос")
+		httputil.JSONErrorWithID(w, http.StatusBadRequest, dto.MsgInvalidRequest)
 		return
 	}
 
 	// Проверяем, что email и пароль заполнены
 	if req.Email == "" || req.Password == "" {
 		h.logger.Warnw("Missing email or password in reset request", "email", req.Email)
-		httputil.JSONError(w, http.StatusBadRequest, "Email и пароль должны быть заполнены")
+		httputil.JSONErrorWithID(w, http.StatusBadRequest, dto.MsgMissingEmailOrPassword)
 		return
 	}
 
@@ -55,8 +56,7 @@ func (h *UserHandler) ResetPasswordHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Отправка успешного ответа
-	response := httputil.SuccessResponse("Пароль успешно обновлён")
-	if err := httputil.JSONResponse(w, http.StatusOK, response); err != nil {
+	if err := httputil.JSONSuccessWithID(w, http.StatusOK, dto.MsgSuccessPasswordChanged, nil); err != nil {
 		errors.HandleInternalError(w, err, h.logger, "encode response")
 	}
 

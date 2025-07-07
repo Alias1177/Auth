@@ -41,14 +41,14 @@ func (h *PasswordResetHandler) RequestPasswordReset(w http.ResponseWriter, r *ht
 
 	// Декодирование JSON запроса
 	if err := httputil.DecodeJSON(r, &req, h.logger); err != nil {
-		httputil.JSONError(w, http.StatusBadRequest, "Некорректный запрос")
+		httputil.JSONErrorWithID(w, http.StatusBadRequest, dto.MsgInvalidRequest)
 		return
 	}
 
 	// Валидация запроса
 	if err := h.validator.Validate(req); err != nil {
 		h.logger.Warnw("Validation failed for password reset request", "email", req.Email, "error", err)
-		httputil.JSONError(w, http.StatusBadRequest, "Некорректные данные запроса")
+		httputil.JSONErrorWithID(w, http.StatusBadRequest, dto.MsgInvalidRequestData)
 		return
 	}
 
@@ -60,16 +60,14 @@ func (h *PasswordResetHandler) RequestPasswordReset(w http.ResponseWriter, r *ht
 	}
 
 	// Отправляем успешный ответ
-	response := dto.RequestPasswordResetResponse{
-		Message: "Если указанный email существует в системе, на него будет отправлен код подтверждения",
-	}
+	response := dto.RequestPasswordResetResponse{}
 
 	// В режиме разработки также отправляем код для тестирования
 	if code, err := h.emailService.SendPasswordResetCode(r.Context(), req.Email, ""); err == nil && code != "" {
 		response.Code = code
 	}
 
-	if err := httputil.JSONResponse(w, http.StatusOK, response); err != nil {
+	if err := httputil.JSONSuccessWithID(w, http.StatusOK, dto.MsgSuccessPasswordResetRequested, response); err != nil {
 		errors.HandleInternalError(w, err, h.logger, "encode response")
 	}
 }
@@ -80,14 +78,14 @@ func (h *PasswordResetHandler) ConfirmPasswordReset(w http.ResponseWriter, r *ht
 
 	// Декодирование JSON запроса
 	if err := httputil.DecodeJSON(r, &req, h.logger); err != nil {
-		httputil.JSONError(w, http.StatusBadRequest, "Некорректный запрос")
+		httputil.JSONErrorWithID(w, http.StatusBadRequest, dto.MsgInvalidRequest)
 		return
 	}
 
 	// Валидация запроса
 	if err := h.validator.Validate(req); err != nil {
 		h.logger.Warnw("Validation failed for password reset confirmation", "email", req.Email, "error", err)
-		httputil.JSONError(w, http.StatusBadRequest, "Некорректные данные запроса")
+		httputil.JSONErrorWithID(w, http.StatusBadRequest, dto.MsgInvalidRequestData)
 		return
 	}
 
@@ -98,15 +96,15 @@ func (h *PasswordResetHandler) ConfirmPasswordReset(w http.ResponseWriter, r *ht
 		// Обрабатываем различные типы ошибок
 		switch err {
 		case apperrors.ErrInvalidToken:
-			httputil.JSONError(w, http.StatusBadRequest, "Неверный код подтверждения")
+			httputil.JSONErrorWithID(w, http.StatusBadRequest, dto.MsgInvalidResetCode)
 		case apperrors.ErrExpiredToken:
-			httputil.JSONError(w, http.StatusBadRequest, "Код подтверждения истек")
+			httputil.JSONErrorWithID(w, http.StatusBadRequest, dto.MsgResetCodeExpired)
 		case apperrors.ErrTooManyRequests:
-			httputil.JSONError(w, http.StatusTooManyRequests, "Превышен лимит попыток ввода кода")
+			httputil.JSONErrorWithID(w, http.StatusTooManyRequests, dto.MsgTooManyResetAttempts)
 		case apperrors.ErrInvalidPassword:
-			httputil.JSONError(w, http.StatusBadRequest, "Пароль не соответствует требованиям безопасности")
+			httputil.JSONErrorWithID(w, http.StatusBadRequest, dto.MsgPasswordTooWeak)
 		case apperrors.ErrUserNotFound:
-			httputil.JSONError(w, http.StatusNotFound, "Пользователь не найден")
+			httputil.JSONErrorWithID(w, http.StatusNotFound, dto.MsgUserNotFound)
 		default:
 			errors.HandleInternalError(w, err, h.logger, "confirm password reset")
 		}
@@ -114,11 +112,9 @@ func (h *PasswordResetHandler) ConfirmPasswordReset(w http.ResponseWriter, r *ht
 	}
 
 	// Отправляем успешный ответ
-	response := dto.ConfirmPasswordResetResponse{
-		Message: "Пароль успешно изменен",
-	}
+	response := dto.ConfirmPasswordResetResponse{}
 
-	if err := httputil.JSONResponse(w, http.StatusOK, response); err != nil {
+	if err := httputil.JSONSuccessWithID(w, http.StatusOK, dto.MsgSuccessPasswordResetConfirmed, response); err != nil {
 		errors.HandleInternalError(w, err, h.logger, "encode response")
 	}
 }
