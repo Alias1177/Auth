@@ -22,8 +22,7 @@ type RegisterRequest struct {
 
 // RegisterResponse DTO для ответа регистрации
 type RegisterResponse struct {
-	Message string  `json:"message"`
-	User    UserDTO `json:"user"`
+	User UserDTO `json:"user"`
 }
 
 // RefreshRequest DTO для обновления токена
@@ -43,8 +42,7 @@ type RequestPasswordResetRequest struct {
 
 // RequestPasswordResetResponse DTO для ответа запроса сброса пароля
 type RequestPasswordResetResponse struct {
-	Message string `json:"message"`
-	Code    string `json:"code,omitempty"` // Только в режиме разработки
+	Code string `json:"code,omitempty"`
 }
 
 // ConfirmPasswordResetRequest DTO для подтверждения сброса пароля
@@ -56,5 +54,4 @@ type ConfirmPasswordResetRequest struct {
 
 // ConfirmPasswordResetResponse DTO для ответа подтверждения сброса пароля
 type ConfirmPasswordResetResponse struct {
-	Message string `json:"message"`
 }

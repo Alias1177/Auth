@@ -34,7 +34,11 @@ func (r *PostgresRepository) GetUserByID(ctx context.Context, id int) (*domain.U
 	query := `SELECT id, username, email, password FROM UsersLog WHERE id = $1`
 	err := r.db.GetContext(ctx, &user, query, id)
 	if err != nil {
-		r.log.Errorw("Get err", "err", err)
+		if errors.Is(err, sql.ErrNoRows) {
+			r.log.Debugw("User not found by ID", "id", id)
+			return nil, sql.ErrNoRows
+		}
+		r.log.Errorw("Database error when getting user by ID", "id", id, "err", err)
 		return nil, fmt.Errorf("failed to get user from db: %w", err)
 	}
 	return &user, nil
@@ -50,10 +54,10 @@ func (r *PostgresRepository) GetUserByEmail(ctx context.Context, email string) (
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			r.log.Errorw("Get err", "err", err)
+			r.log.Debugw("User not found by email", "email", email)
 			return nil, sql.ErrNoRows
 		}
-		r.log.Errorw("Get err", "err", err)
+		r.log.Errorw("Database error when getting user by email", "email", email, "err", err)
 		return nil, err // другая ошибка (например, ошибка соединения или запроса)
 	}
 
