@@ -55,9 +55,9 @@ func (s *PasswordResetServiceImpl) RequestReset(ctx context.Context, email strin
 	// Проверяем существование пользователя
 	user, err := s.userRepo.GetUserByEmail(ctx, email)
 	if err != nil {
-		s.logger.Warnw("Password reset requested for non-existent email", "email", email)
-		// Не раскрываем информацию о существовании пользователя
-		return "", nil
+		s.logger.Debugw("Password reset requested for non-existent email", "email", email)
+		// Возвращаем специальную ошибку для несуществующего пользователя
+		return "", errors.ErrUserNotFound
 	}
 
 	// Генерируем код подтверждения

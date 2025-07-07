@@ -56,7 +56,14 @@ func (h *PasswordResetHandler) RequestPasswordReset(w http.ResponseWriter, r *ht
 	code, err := h.passwordResetService.RequestReset(r.Context(), req.Email)
 	if err != nil {
 		h.logger.Errorw("Failed to request password reset", "email", req.Email, "error", err)
-		errors.HandleInternalError(w, err, h.logger, "request password reset")
+
+		// Обрабатываем различные типы ошибок
+		switch err {
+		case apperrors.ErrUserNotFound:
+			httputil.JSONErrorWithID(w, http.StatusNotFound, dto.MsgUserNotFound)
+		default:
+			errors.HandleInternalError(w, err, h.logger, "request password reset")
+		}
 		return
 	}
 
