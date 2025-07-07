@@ -6,6 +6,7 @@ import (
 
 	"github.com/Alias1177/Auth/internal/config"
 	"github.com/Alias1177/Auth/internal/domain"
+	"github.com/Alias1177/Auth/internal/dto"
 	"github.com/Alias1177/Auth/internal/service"
 	"github.com/Alias1177/Auth/pkg/errors"
 	"github.com/Alias1177/Auth/pkg/httputil"
@@ -37,7 +38,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// Декодирование JSON запроса
 	if err := httputil.DecodeJSON(r, &req, h.logger); err != nil {
-		httputil.JSONError(w, http.StatusBadRequest, "Некорректный запрос")
+		httputil.JSONErrorWithID(w, http.StatusBadRequest, dto.MsgInvalidRequest)
 		return
 	}
 
@@ -50,7 +51,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// Проверка пароля
 	if err := crypto.VerifyPassword(user.Password, req.Password); err != nil {
-		errors.HandleUnauthorizedError(w, "Неверный пароль", h.logger)
+		httputil.JSONErrorWithID(w, http.StatusUnauthorized, dto.MsgWrongPassword)
 		return
 	}
 
@@ -76,12 +77,11 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// Отправка успешного ответа
 	response := map[string]string{
-		"message":       "Вы успешно вошли в систему",
 		"access_token":  accessToken,
 		"refresh_token": refreshToken,
 	}
 
-	if err := httputil.JSONResponse(w, http.StatusOK, response); err != nil {
+	if err := httputil.JSONSuccessWithID(w, http.StatusOK, dto.MsgSuccessLogin, response); err != nil {
 		errors.HandleInternalError(w, err, h.logger, "encode response")
 	}
 }

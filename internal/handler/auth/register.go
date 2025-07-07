@@ -6,6 +6,7 @@ import (
 
 	"github.com/Alias1177/Auth/internal/config"
 	"github.com/Alias1177/Auth/internal/domain"
+	"github.com/Alias1177/Auth/internal/dto"
 	"github.com/Alias1177/Auth/internal/service"
 	"github.com/Alias1177/Auth/pkg/errors"
 	"github.com/Alias1177/Auth/pkg/httputil"
@@ -47,7 +48,7 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	// Декодирование JSON запроса
 	if err := httputil.DecodeJSON(r, &req, h.logger); err != nil {
-		httputil.JSONError(w, http.StatusBadRequest, "Некорректный запрос")
+		httputil.JSONErrorWithID(w, http.StatusBadRequest, dto.MsgInvalidRequest)
 		return
 	}
 
@@ -55,7 +56,7 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 	_, err := h.userRepository.GetUserByEmail(r.Context(), req.Email)
 	if err == nil {
 		h.logger.Warnw("User already exists", "email", req.Email, "username", req.Username)
-		httputil.JSONError(w, http.StatusConflict, "Пользователь с таким email уже существует")
+		httputil.JSONErrorWithID(w, http.StatusConflict, dto.MsgEmailAlreadyExists)
 		return
 	}
 
@@ -102,10 +103,10 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	// Отправка успешного ответа
 	response := map[string]string{
-		"message": "Пользователь успешно зарегистрирован",
+		"access_token": accessToken,
 	}
 
-	if err := httputil.JSONResponse(w, http.StatusCreated, response); err != nil {
+	if err := httputil.JSONSuccessWithID(w, http.StatusCreated, dto.MsgSuccessRegister, response); err != nil {
 		errors.HandleInternalError(w, err, h.logger, "encode response")
 	}
 }

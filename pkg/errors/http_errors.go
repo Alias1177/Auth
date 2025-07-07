@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/Alias1177/Auth/internal/dto"
 	"github.com/Alias1177/Auth/pkg/httputil"
 	"github.com/Alias1177/Auth/pkg/logger"
 )
@@ -36,28 +37,28 @@ func NewHTTPError(code int, message string, err error) *HTTPError {
 func HandleDatabaseError(w http.ResponseWriter, err error, log *logger.Logger, operation string) {
 	if errors.Is(err, sql.ErrNoRows) {
 		log.Warnw("Resource not found", "operation", operation, "error", err)
-		httputil.JSONError(w, http.StatusNotFound, "Ресурс не найден")
+		httputil.JSONErrorWithID(w, http.StatusNotFound, dto.MsgResourceNotFound)
 		return
 	}
 
 	log.Errorw("Database error", "operation", operation, "error", err)
-	httputil.JSONError(w, http.StatusInternalServerError, "Ошибка базы данных")
+	httputil.JSONErrorWithID(w, http.StatusInternalServerError, dto.MsgDatabaseError)
 }
 
 // HandleValidationError обрабатывает ошибки валидации
 func HandleValidationError(w http.ResponseWriter, err error, log *logger.Logger) {
 	log.Warnw("Validation error", "error", err)
-	httputil.JSONError(w, http.StatusBadRequest, "Некорректные данные: "+err.Error())
+	httputil.JSONErrorWithID(w, http.StatusBadRequest, dto.MsgInvalidRequestData)
 }
 
 // HandleInternalError обрабатывает внутренние ошибки
 func HandleInternalError(w http.ResponseWriter, err error, log *logger.Logger, operation string) {
 	log.Errorw("Internal error", "operation", operation, "error", err)
-	httputil.JSONError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+	httputil.JSONErrorWithID(w, http.StatusInternalServerError, dto.MsgInternalError)
 }
 
 // HandleUnauthorizedError обрабатывает ошибки авторизации
 func HandleUnauthorizedError(w http.ResponseWriter, message string, log *logger.Logger) {
 	log.Warnw("Unauthorized access", "message", message)
-	httputil.JSONError(w, http.StatusUnauthorized, message)
+	httputil.JSONErrorWithID(w, http.StatusUnauthorized, dto.MsgUnauthorized)
 }

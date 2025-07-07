@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/Alias1177/Auth/internal/domain"
+	"github.com/Alias1177/Auth/internal/dto"
 	"github.com/Alias1177/Auth/internal/middleware"
 	"github.com/Alias1177/Auth/pkg/errors"
 	"github.com/Alias1177/Auth/pkg/httputil"
@@ -23,7 +24,7 @@ func (h *UserHandler) GetUserInfoHandler(w http.ResponseWriter, r *http.Request)
 	userID, err := strconv.Atoi(userClaims.UserID)
 	if err != nil {
 		h.logger.Errorw("Invalid user ID in claims", "user_id", userClaims.UserID, "error", err)
-		httputil.JSONError(w, http.StatusBadRequest, "Некорректный ID пользователя")
+		httputil.JSONErrorWithID(w, http.StatusBadRequest, dto.MsgInvalidUserID)
 		return
 	}
 
@@ -35,7 +36,7 @@ func (h *UserHandler) GetUserInfoHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Отправляем информацию о пользователе
-	if err := httputil.JSONResponse(w, http.StatusOK, user); err != nil {
+	if err := httputil.JSONSuccessWithID(w, http.StatusOK, dto.MsgSuccessUserInfoRetrieved, user); err != nil {
 		errors.HandleInternalError(w, err, h.logger, "encode user response")
 	}
 }
