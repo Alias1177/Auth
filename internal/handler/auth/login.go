@@ -12,6 +12,7 @@ import (
 	"github.com/Alias1177/Auth/pkg/httputil"
 	"github.com/Alias1177/Auth/pkg/logger"
 	crypto "github.com/Alias1177/Auth/pkg/security"
+	"github.com/Alias1177/Auth/pkg/sentry"
 )
 
 type AuthHandler struct {
@@ -38,6 +39,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// Декодирование JSON запроса
 	if err := httputil.DecodeJSON(r, &req, h.logger); err != nil {
+		// Отправляем ошибку в Sentry
+		sentry.CaptureError(r.Context(), err, r)
 		httputil.JSONErrorWithID(w, http.StatusBadRequest, dto.MsgInvalidRequest)
 		return
 	}
@@ -45,12 +48,16 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Получение пользователя по email
 	user, err := h.userRepository.GetUserByEmail(r.Context(), req.Email)
 	if err != nil {
+		// Отправляем ошибку в Sentry с контекстом
+		sentry.CaptureError(r.Context(), err, r)
 		errors.HandleDatabaseError(w, err, h.logger, "get user by email")
 		return
 	}
 
 	// Проверка пароля
 	if err := crypto.VerifyPassword(user.Password, req.Password); err != nil {
+		// Отправляем предупреждение в Sentry о неудачной попытке входа
+		sentry.CaptureWarning(r.Context(), "Failed login attempt", r)
 		httputil.JSONErrorWithID(w, http.StatusUnauthorized, dto.MsgWrongPassword)
 		return
 	}
@@ -63,14 +70,21 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	accessToken, err := h.tokenManager.GenerateAccessToken(claims)
 	if err != nil {
+		// Отправляем ошибку в Sentry
+		sentry.CaptureError(r.Context(), err, r)
 		errors.HandleInternalError(w, err, h.logger, "generate access token")
 		return
 	}
 	refreshToken, err := h.tokenManager.GenerateRefreshToken(claims)
 	if err != nil {
+		// Отправляем ошибку в Sentry
+		sentry.CaptureError(r.Context(), err, r)
 		errors.HandleInternalError(w, err, h.logger, "generate refresh token")
 		return
 	}
+
+	// Добавляем информацию о пользователе в Sentry
+	sentry.AddUserInfo(r.Context(), strconv.Itoa(user.ID), user.Email)
 
 	// Установка токена в куки
 	httputil.SetTokenCookie(w, "access-token", accessToken)
@@ -82,6 +96,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := httputil.JSONSuccessWithID(w, http.StatusOK, dto.MsgSuccessLogin, response); err != nil {
+		// Отправляем ошибку в Sentry
+		sentry.CaptureError(r.Context(), err, r)
 		errors.HandleInternalError(w, err, h.logger, "encode response")
 	}
 }

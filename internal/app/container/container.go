@@ -16,6 +16,7 @@ import (
 	"github.com/Alias1177/Auth/pkg/jwt"
 	"github.com/Alias1177/Auth/pkg/kafka"
 	"github.com/Alias1177/Auth/pkg/logger"
+	"github.com/Alias1177/Auth/pkg/oauth"
 	"github.com/Alias1177/Auth/pkg/validator"
 )
 
@@ -38,6 +39,7 @@ type Container struct {
 	registrationHandler  *auth.RegistrationHandler
 	userHandler          *user.UserHandler
 	passwordResetHandler *auth.PasswordResetHandler
+	oauthHandler         *auth.OAuthHandler
 }
 
 // New создает новый контейнер зависимостей
@@ -59,6 +61,9 @@ func New(ctx context.Context, cfg *config.Config, log *logger.Logger) (*Containe
 	if err := container.initServices(); err != nil {
 		return nil, err
 	}
+
+	// Инициализация OAuth
+	oauth.NewOAuth(cfg, log)
 
 	if err := container.initHandlers(); err != nil {
 		return nil, err
@@ -158,6 +163,9 @@ func (c *Container) initHandlers() error {
 		c.logger,
 	)
 
+	// Инициализация OAuth handler
+	c.oauthHandler = auth.NewOAuthService(c.logger, c.tokenManager, c.mainRepo)
+
 	return nil
 }
 
@@ -208,6 +216,10 @@ func (c *Container) GetTokenManager() service.TokenManager {
 
 func (c *Container) GetLogger() *logger.Logger {
 	return c.logger
+}
+
+func (c *Container) GetOAuthHandler() *auth.OAuthHandler {
+	return c.oauthHandler
 }
 
 // Close закрывает все соединения
