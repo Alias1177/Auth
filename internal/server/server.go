@@ -75,7 +75,7 @@ func (s *Server) setupRoutes() {
 	s.router.Handle("/metrics", promhttp.Handler())
 	s.router.Post("/refresh-token", authHandler.Refresh)
 	s.router.Get("/auth/{provider}/callback", oauthHandler.GetCallback)
-	s.router.Get("logout/{provider}", oauthHandler.GetLogout)
+	s.router.Get("/logout/{provider}", oauthHandler.GetLogout)
 	s.router.Get("/auth/{provider}", oauthHandler.GetAuth)
 
 	// Новые безопасные ручки для сброса пароля
