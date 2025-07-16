@@ -7,6 +7,7 @@ import (
 	"github.com/Alias1177/Auth/internal/config"
 	"github.com/Alias1177/Auth/internal/handler/auth"
 	"github.com/Alias1177/Auth/internal/handler/user"
+	"github.com/Alias1177/Auth/internal/oauth"
 	"github.com/Alias1177/Auth/internal/repository"
 	"github.com/Alias1177/Auth/internal/repository/postgres"
 	"github.com/Alias1177/Auth/internal/repository/redis"
@@ -16,7 +17,6 @@ import (
 	"github.com/Alias1177/Auth/pkg/jwt"
 	"github.com/Alias1177/Auth/pkg/kafka"
 	"github.com/Alias1177/Auth/pkg/logger"
-	"github.com/Alias1177/Auth/pkg/oauth"
 	"github.com/Alias1177/Auth/pkg/validator"
 )
 
@@ -63,7 +63,7 @@ func New(ctx context.Context, cfg *config.Config, log *logger.Logger) (*Containe
 	}
 
 	// Инициализация OAuth
-	oauth.NewOAuth(cfg, log)
+	oauth.NewOAuth(cfg)
 
 	if err := container.initHandlers(); err != nil {
 		return nil, err
