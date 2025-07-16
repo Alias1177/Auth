@@ -12,6 +12,7 @@ import (
 	"github.com/Alias1177/Auth/internal/config"
 	"github.com/Alias1177/Auth/internal/server"
 	"github.com/Alias1177/Auth/pkg/logger"
+	"github.com/Alias1177/Auth/pkg/sentry"
 )
 
 // App представляет основное приложение
@@ -59,6 +60,13 @@ func (a *App) Run() error {
 	if err := a.loadConfig(); err != nil {
 		return err
 	}
+
+	// Инициализация Sentry
+	if err := sentry.Init(&a.config.Sentry, a.logger.GetZapLogger()); err != nil {
+		a.logger.Errorw("Ошибка инициализации Sentry", "error", err)
+		// Не прерываем запуск приложения, если Sentry не удалось инициализировать
+	}
+	defer sentry.Flush(2 * time.Second)
 
 	// Инициализация контейнера зависимостей
 	if err := a.initContainer(); err != nil {

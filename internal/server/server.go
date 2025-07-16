@@ -47,6 +47,10 @@ func (s *Server) setupMiddleware() {
 		MaxAge:           300,
 	}))
 
+	// Sentry middleware (должен быть первым для отслеживания всех запросов)
+	sentryMiddleware := middleware.SentryMiddleware(logger.GetZapLogger())
+	s.router.Use(sentryMiddleware)
+
 	// Logger middleware
 	loggerMiddleware := middleware.NewLoggerMiddleware(logger)
 	s.router.Use(loggerMiddleware.Handler)
@@ -63,12 +67,16 @@ func (s *Server) setupRoutes() {
 	userHandler := s.container.GetUserHandler()
 	tokenManager := s.container.GetTokenManager()
 	passwordResetHandler := s.container.GetPasswordResetHandler()
+	oauthHandler := s.container.GetOAuthHandler()
 
 	// Публичные маршруты
 	s.router.Post("/login", authHandler.Login)
 	s.router.Post("/register", registrationHandler.Register)
 	s.router.Handle("/metrics", promhttp.Handler())
 	s.router.Post("/refresh-token", authHandler.Refresh)
+	s.router.Get("/auth/{provider}/callback", oauthHandler.GetCallback)
+	s.router.Get("logout/{provider}", oauthHandler.GetLogout)
+	s.router.Get("/auth/{provider}", oauthHandler.GetAuth)
 
 	// Новые безопасные ручки для сброса пароля
 	s.router.Post("/auth/request-password-reset", passwordResetHandler.RequestPasswordReset)

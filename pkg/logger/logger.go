@@ -71,3 +71,8 @@ func (l *Logger) WithFields(fields map[string]interface{}) *Logger {
 func (l *Logger) Close() error {
 	return l.zapLogger.Sync()
 }
+
+// GetZapLogger возвращает внутренний zap.Logger
+func (l *Logger) GetZapLogger() *zap.Logger {
+	return l.zapLogger
+}
