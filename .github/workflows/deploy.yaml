@@ -32,6 +32,8 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          timeout: 20m
+          command_timeout: 15m
           script: |
             cd /home/Auth
             
@@ -54,14 +56,10 @@ jobs:
               # Stop all running containers
               docker-compose down --remove-orphans
               
-              # Проверяем, нужно ли пересобирать
-              if docker-compose images | grep -q "auth-service.*<none>"; then
-                echo "Building auth-service..."
-                docker-compose build --no-cache auth-service
-              else
-                echo "Using existing auth-service image"
-              fi
-            
+              # Всегда пересобираем для обновления кода
+              echo "Building auth-service..."
+              DOCKER_BUILDKIT=1 docker-compose build --no-cache auth-service
+              
               # Start containers
               docker-compose up -d
             
@@ -73,14 +71,10 @@ jobs:
               # Stop all running containers
               docker compose down --remove-orphans
               
-              # Проверяем, нужно ли пересобирать
-              if docker compose images | grep -q "auth-service.*<none>"; then
-                echo "Building auth-service..."
-                docker compose build --no-cache auth-service
-              else
-                echo "Using existing auth-service image"
-              fi
-            
+              # Всегда пересобираем для обновления кода
+              echo "Building auth-service..."
+              DOCKER_BUILDKIT=1 docker compose build --no-cache auth-service
+              
               # Start containers
               docker compose up -d
             

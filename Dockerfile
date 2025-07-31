@@ -5,37 +5,49 @@ FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
+# Устанавливаем git для go mod download
+RUN apk add --no-cache git
+
 # Копируем файлы модулей и скачиваем зависимости
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Копируем исходный код проекта
-COPY . .
+# Копируем только необходимые исходные файлы для сборки
+COPY cmd/service ./cmd/service
+COPY internal ./internal
+COPY pkg ./pkg
 
-# Билдим Go-приложение
-RUN cd cmd/service && CGO_ENABLED=0 go build -ldflags "-s -w" -o auth-app
+# Билдим Go-приложение с оптимизациями
+RUN cd cmd/service && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags "-s -w -extldflags '-static'" \
+    -o auth-app
 
 # Этап 2: Запуск приложения в минимальном контейнере
-FROM golang:1.24-alpine
+FROM alpine:latest
+
+# Устанавливаем ca-certificates для HTTPS запросов
+RUN apk --no-cache add ca-certificates
 
 WORKDIR /app
 
 # Копируем только готовый бинарник из builder-стадии
 COPY --from=builder /app/cmd/service/auth-app ./auth-app
 
-# Копируем .env файл (по необходимости)
-COPY .env .env
-
 # Копируем миграции
-COPY db/migrations /app/db/migrations
+COPY db/migrations ./db/migrations
 
-# Копируем исходный код для использования миграций
-COPY cmd /app/cmd
-COPY pkg /app/pkg
-COPY internal /app/internal
-COPY go.mod go.sum ./
+# Создаем пользователя для безопасности
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -u 1001 -S appuser -G appgroup
 
-# Указываем открываемый порт приложения (порт, на котором слушает Go-сервер)
+# Меняем владельца файлов
+RUN chown -R appuser:appgroup /app
+
+# Переключаемся на непривилегированного пользователя
+USER appuser
+
+# Указываем открываемый порт приложения
 EXPOSE 8080
 
 # Запускаем готовый бинарник
