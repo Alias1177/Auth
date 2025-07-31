@@ -19,11 +19,11 @@ type PasswordResetService interface {
 
 // PasswordResetServiceImpl реализация сервиса сброса пароля
 type PasswordResetServiceImpl struct {
-	userRepo            UserRepository
-	userCache           UserCache
-	logger              *logger.Logger
-	kafkaProducer       *kafka.Producer
-	notificationClient  *notification.NotificationClient
+	userRepo           UserRepository
+	userCache          UserCache
+	logger             *logger.Logger
+	kafkaProducer      *kafka.Producer
+	notificationClient *notification.NotificationClient
 }
 
 // NewPasswordResetService создает новый экземпляр сервиса сброса пароля
