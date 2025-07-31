@@ -1,4 +1,4 @@
-name: Deploy Auth Service CI/CD
+name: Deploy Auth CI/CD
 
 on:
   push:
@@ -9,199 +9,69 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+      - name: Install docker-compose
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker-compose
 
       - name: Copy files to server
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_NAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY  }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "."
           target: "/home/Auth"
-          overwrite: true
-          strip_components: 1
 
-      - name: Check server environment
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Deploy on server
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_NAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY  }}
-          script: |
-            set -e
-            
-            echo "=== Server Environment Check ==="
-            cd /home/Auth || { echo "Failed to cd to /home/Auth"; exit 1; }
-            
-            echo "Current directory: $(pwd)"
-            echo "Files in directory:"
-            ls -la
-            
-            # Check Docker
-            docker --version || { echo "Docker not installed"; exit 1; }
-            
-            # Check Docker Compose versions
-            if command -v docker-compose &> /dev/null; then
-              echo "docker-compose available: $(docker-compose --version)"
-            fi
-            
-            if docker compose version &> /dev/null; then
-              echo "docker compose available: $(docker compose version)"
-            fi
-
-      - name: Deploy application
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_NAME }}
+          username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          timeout: 60s
-          command_timeout: 15m
           script: |
-            set -e
-            
-            echo "=== Starting Deployment ==="
-            cd /home/Auth || { echo "Failed to cd to /home/Auth"; exit 1; }
-            
-            # Fix file permissions and ownership
-            echo "=== Fixing file permissions ==="
-            sudo chown -R $USER:$USER /home/Auth || echo "Permission fix skipped"
-            chmod +x /home/Auth 2>/dev/null || echo "chmod skipped"
-            
-            # Verify Go files exist
-            echo "=== Verifying Go project files ==="
-            if [ ! -f "go.mod" ]; then
-              echo "ERROR: go.mod not found!"
-              echo "Files in current directory:"
-              ls -la
-              exit 1
-            fi
-            
-            if [ ! -f "go.sum" ]; then
-              echo "ERROR: go.sum not found!"
-              echo "Files in current directory:"
-              ls -la
-              exit 1
-            fi
-            
-            echo "✅ Go files found: go.mod and go.sum"
+            cd /home/Auth
             
             # Create .env file
-            echo "=== Creating .env file ==="
-            echo "${{ secrets.ENV }}" > .env
+            echo "${{ secrets.ENV_FILE_CONTENTS }}" > .env
             chmod 600 .env
-            echo ".env file created"
             
-            # Check if docker-compose.yml exists in root
-            if [ -f "docker-compose.yml" ]; then
-              COMPOSE_FILE="docker-compose.yml"
-              WORK_DIR="."
-              echo "Found docker-compose.yml in root directory"
-            # Check if docker-compose.yml exists in docker folder
-            elif [ -f "docker/docker-compose.yml" ]; then
-              COMPOSE_FILE="docker/docker-compose.yml"
-              WORK_DIR="docker"
-              echo "Found docker-compose.yml in docker directory"
-              # Copy .env to docker directory
-              cp .env docker/
-            else
-              echo "ERROR: docker-compose.yml not found!"
-              echo "Checking common locations:"
-              find . -name "docker-compose.yml" -o -name "docker-compose.yaml" 2>/dev/null || echo "No compose files found"
-              echo "Files in current directory:"
+            # Проверяем существование файлов docker-compose
+            if [ ! -f "docker-compose.yaml" ]; then
+              echo "docker-compose.yaml not found!"
               ls -la
-              echo "Files in docker directory (if exists):"
-              ls -la docker/ 2>/dev/null || echo "No docker directory"
               exit 1
             fi
             
-            echo "=== Using compose file: $COMPOSE_FILE ==="
-            echo "=== Working directory: $WORK_DIR ==="
-            
-            # Change to working directory if needed
-            if [ "$WORK_DIR" != "." ]; then
-              cd $WORK_DIR
-              echo "Changed to directory: $(pwd)"
-            fi
-            
-            # Determine Docker Compose command
+            # Используем docker-compose вместо docker compose, если доступен
             if command -v docker-compose &> /dev/null; then
-              COMPOSE_CMD="docker-compose"
-              echo "Using: docker-compose"
-            elif docker compose version &> /dev/null; then
-              COMPOSE_CMD="docker compose"
-              echo "Using: docker compose"
+              # Stop all running containers
+              docker-compose down
+            
+              # Build the containers
+              docker-compose build
+            
+              # Start containers
+              docker-compose up -d
+            
+              # Check status
+              sleep 5
+              docker-compose ps
             else
-              echo "ERROR: Neither docker-compose nor docker compose is available!"
-              exit 1
+              # Попытаемся использовать docker compose (новый синтаксис)
+              # Stop all running containers
+              docker compose down
+            
+              # Build the containers
+              docker compose build
+            
+              # Start containers
+              docker compose up -d
+            
+              # Check status
+              sleep 5
+              docker compose ps
             fi
-            
-            # Stop existing containers
-            echo "=== Stopping existing containers ==="
-            $COMPOSE_CMD down --remove-orphans || echo "No containers to stop"
-            
-            # Force remove any conflicting containers
-            echo "=== Removing conflicting containers ==="
-            docker rm -f auth-service postgres redis kafka zookeeper prometheus node-exporter grafana 2>/dev/null || echo "No conflicting containers to remove"
-            
-            # Clean up unused images
-            echo "=== Cleaning up unused images ==="
-            docker image prune -f || echo "Image cleanup skipped"
-            
-            # Build containers with proper context
-            echo "=== Building containers ==="
-            DOCKER_BUILDKIT=1 $COMPOSE_CMD build --no-cache --progress=plain
-            
-            # Start containers
-            echo "=== Starting containers ==="
-            $COMPOSE_CMD up -d
-            
-            # Wait for containers to start
-            echo "=== Waiting for containers to start ==="
-            sleep 30
-            
-            # Check container status
-            echo "=== Container Status ==="
-            $COMPOSE_CMD ps
-            
-            # Show recent logs for debugging
-            echo "=== Recent Logs ==="
-            $COMPOSE_CMD logs --tail=30
-            
-            # Verify containers are running
-            echo "=== Verifying deployment ==="
-            if $COMPOSE_CMD ps | grep -q "Up\|running"; then
-              echo "✅ Deployment successful! Containers are running."
-            else
-              echo "❌ Deployment may have issues. Check logs above."
-              $COMPOSE_CMD ps
-              exit 1
-            fi
-            
-            # Health checks
-            echo "=== Health Checks ==="
-            sleep 10
-            
-            # Check Auth Service
-            if curl -f http://localhost:8080/metrics > /dev/null 2>&1; then
-              echo "✅ Auth service is healthy"
-            else
-              echo "❌ Auth service health check failed"
-              exit 1
-            fi
-            
-            # Check Prometheus
-            if curl -f http://localhost:9090/api/v1/targets > /dev/null 2>&1; then
-              echo "✅ Prometheus is healthy"
-            else
-              echo "❌ Prometheus health check failed"
-              exit 1
-            fi
-            
-            echo "=== Deployment Complete ==="
-            echo "Service URLs:"
-            echo "  Auth Service: http://localhost:8080"
-            echo "  Prometheus: http://localhost:9090"
-            echo "  Grafana: http://localhost:3000 (admin/ochenslozhniyparol)"
