@@ -4,7 +4,7 @@ services:
     build: .
     command: ["./auth-app", "-migrate"]  # Запуск с флагом миграции
     ports:
-      - "8080:8080"
+      - "8081:8080"  # Изменили порт, чтобы не конфликтовать с notification-service
     env_file:
       - .env
     depends_on:
@@ -12,6 +12,29 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+      kafka:
+        condition: service_started
+      notification-service:
+        condition: service_started
+
+  # Notification Service
+  notification-service:
+    build: 
+      context: ./Notification
+      dockerfile: Dockerfile
+    container_name: notification-service
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - KAFKA_PROD=kafka:9092
+      - KAFKA_TOPIC=notifications
+      - GROUPE=notification-service
+      - MAIL=${MAIL:-test@example.com}
+      - SECRET=${SECRET:-test-secret}
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+    depends_on:
       kafka:
         condition: service_started
 
@@ -61,6 +84,7 @@ services:
       - prometheus_data:/prometheus
     depends_on:
       - auth-app
+      - notification-service
       - postgres
       - redis
     command:
@@ -69,7 +93,7 @@ services:
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
     extra_hosts:
-      - "node-exporter:194.87.95.28"
+      - "node-exporter:31.97.76.108"
 
   grafana:
     image: grafana/grafana:latest

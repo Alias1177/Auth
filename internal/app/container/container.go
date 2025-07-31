@@ -17,6 +17,7 @@ import (
 	"github.com/Alias1177/Auth/pkg/jwt"
 	"github.com/Alias1177/Auth/pkg/kafka"
 	"github.com/Alias1177/Auth/pkg/logger"
+	"github.com/Alias1177/Auth/pkg/notification"
 	"github.com/Alias1177/Auth/pkg/validator"
 )
 
@@ -31,8 +32,9 @@ type Container struct {
 	mainRepo     *repository.Repository
 
 	// Services
-	tokenManager  service.TokenManager
-	kafkaProducer *kafka.Producer
+	tokenManager         service.TokenManager
+	kafkaProducer        *kafka.Producer
+	notificationClient   *notification.NotificationClient
 
 	// Handlers
 	authHandler          *auth.AuthHandler
@@ -122,6 +124,9 @@ func (c *Container) initServices() error {
 		c.logger,
 	)
 
+	// Notification Client
+	c.notificationClient = notification.NewNotificationClient(c.config.Notification.ServiceURL)
+
 	return nil
 }
 
@@ -145,12 +150,12 @@ func (c *Container) initHandlers() error {
 	c.userHandler = user.NewUserHandler(c.mainRepo, c.logger)
 
 	// Инициализация сервиса сброса пароля
-	emailService := service.NewEmailService(c.config, c.logger)
 	passwordResetService := service.NewPasswordResetService(
 		c.mainRepo,
 		c.redisRepo,
 		c.logger,
-		emailService,
+		c.kafkaProducer,
+		c.notificationClient,
 	)
 
 	// Валидатор
@@ -158,7 +163,6 @@ func (c *Container) initHandlers() error {
 
 	c.passwordResetHandler = auth.NewPasswordResetHandler(
 		passwordResetService,
-		emailService,
 		validator,
 		c.logger,
 	)

@@ -35,6 +35,21 @@ scrape_configs:
         target_label: service
         replacement: 'auth-service'
 
+  # Мониторинг Notification Service
+  - job_name: 'notification_service'
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['notification-service:8080']
+
+    # Добавляем метки для сервиса
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - source_labels: []
+        target_label: service
+        replacement: 'notification-service'
+
   # Redis Exporter для мониторинга Redis
   - job_name: 'redis_exporter'
     static_configs:

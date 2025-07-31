@@ -15,7 +15,6 @@ import (
 // PasswordResetHandler обработчик для сброса пароля
 type PasswordResetHandler struct {
 	passwordResetService service.PasswordResetService
-	emailService         service.EmailService
 	validator            *validator.Validator
 	logger               *logger.Logger
 }
@@ -23,13 +22,11 @@ type PasswordResetHandler struct {
 // NewPasswordResetHandler создает новый обработчик сброса пароля
 func NewPasswordResetHandler(
 	passwordResetService service.PasswordResetService,
-	emailService service.EmailService,
 	validator *validator.Validator,
 	logger *logger.Logger,
 ) *PasswordResetHandler {
 	return &PasswordResetHandler{
 		passwordResetService: passwordResetService,
-		emailService:         emailService,
 		validator:            validator,
 		logger:               logger,
 	}
@@ -52,8 +49,8 @@ func (h *PasswordResetHandler) RequestPasswordReset(w http.ResponseWriter, r *ht
 		return
 	}
 
-	// Получаем сгенерированный код из сервиса
-	code, err := h.passwordResetService.RequestReset(r.Context(), req.Email)
+	// Отправляем запрос в Notification Service через Kafka
+	err := h.passwordResetService.RequestReset(r.Context(), req.Email)
 	if err != nil {
 		h.logger.Errorw("Failed to request password reset", "email", req.Email, "error", err)
 
@@ -67,7 +64,8 @@ func (h *PasswordResetHandler) RequestPasswordReset(w http.ResponseWriter, r *ht
 		return
 	}
 
-	response := dto.RequestPasswordResetResponse{Code: code}
+	// Отправляем успешный ответ без кода (код будет отправлен по email)
+	response := dto.RequestPasswordResetResponse{}
 	if err := httputil.JSONSuccessWithID(w, http.StatusOK, dto.MsgSuccessPasswordResetRequested, response); err != nil {
 		errors.HandleInternalError(w, err, h.logger, "encode response")
 	}

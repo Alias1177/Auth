@@ -42,7 +42,7 @@ type RequestPasswordResetRequest struct {
 
 // RequestPasswordResetResponse DTO для ответа запроса сброса пароля
 type RequestPasswordResetResponse struct {
-	Code string `json:"code,omitempty"`
+	Message string `json:"message,omitempty"`
 }
 
 // ConfirmPasswordResetRequest DTO для подтверждения сброса пароля

@@ -26,7 +26,12 @@ type DatabaseConfig struct {
 // KafkaConfig конфигурация для Kafka
 type KafkaConfig struct {
 	BrokerAddress string `env:"KAFKA_BROKER_ADDRESS" env-default:"localhost:29092"`
-	EmailTopic    string `env:"KAFKA_EMAIL_TOPIC" env-default:"user_registrations"`
+	EmailTopic    string `env:"KAFKA_EMAIL_TOPIC" env-default:"notifications"`
+}
+
+// NotificationConfig конфигурация для Notification Service
+type NotificationConfig struct {
+	ServiceURL string `env:"NOTIFICATION_SERVICE_URL" env-default:"http://notification-service:8080"`
 }
 
 // SentryConfig конфигурация для Sentry
@@ -52,13 +57,14 @@ type GoogleConfig struct {
 
 // Config общая конфигурация приложения
 type Config struct {
-	App      AppConfig
-	Database DatabaseConfig
-	Redis    RedisConfig
-	JWT      JWTConfig
-	Kafka    KafkaConfig
-	Sentry   SentryConfig
-	Google   GoogleConfig
+	App          AppConfig
+	Database     DatabaseConfig
+	Redis        RedisConfig
+	JWT          JWTConfig
+	Kafka        KafkaConfig
+	Notification NotificationConfig
+	Sentry       SentryConfig
+	Google       GoogleConfig
 }
 
 // NewRedisClient создает новый клиент Redis на основе конфигурации
