@@ -32,8 +32,6 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          timeout: 20m
-          command_timeout: 15m
           script: |
             cd /home/Auth
             
@@ -48,45 +46,50 @@ jobs:
               exit 1
             fi
             
-            # Очистка старых образов для экономии места
-            docker image prune -f || true
-            
             # Используем docker-compose вместо docker compose, если доступен
             if command -v docker-compose &> /dev/null; then
               # Stop all running containers
-              docker-compose down --remove-orphans
-              
-              # Проверяем, нужно ли пересобирать (только если код изменился)
-              if docker-compose images | grep -q "auth-service.*<none>" || [ "$(git rev-parse HEAD)" != "$(docker-compose images --format '{{.Repository}}:{{.Tag}}' | grep auth-service | cut -d: -f2)" ]; then
-                echo "Building auth-service..."
-                DOCKER_BUILDKIT=1 docker-compose build --no-cache auth-service
-              else
-                echo "Using existing auth-service image"
-              fi
-              
+              docker-compose -f docker-compose.yaml -f docker-compose-loki.yaml down
+            
+              # Build the containers
+              docker-compose -f docker-compose.yaml -f docker-compose-loki.yaml build
+            
+              # Modify docker-compose.yaml temporarily
+              sed -i.bak 's/- "8080:8080"/# - "8080:8080"/' docker-compose.yaml
+            
+              # Run migrations
+              docker-compose -f docker-compose.yaml run --rm auth-app ./auth-app -migrate || true
+            
+              # Restore the original file
+              mv docker-compose.yaml.bak docker-compose.yaml
+            
               # Start containers
-              docker-compose up -d
+              docker-compose -f docker-compose.yaml -f docker-compose-loki.yaml up -d
             
               # Check status
-              sleep 2
-              docker-compose ps
+              sleep 5
+              docker-compose -f docker-compose.yaml -f docker-compose-loki.yaml ps
             else
               # Попытаемся использовать docker compose (новый синтаксис)
               # Stop all running containers
-              docker compose down --remove-orphans
-              
-              # Проверяем, нужно ли пересобирать (только если код изменился)
-              if docker compose images | grep -q "auth-service.*<none>" || [ "$(git rev-parse HEAD)" != "$(docker compose images --format '{{.Repository}}:{{.Tag}}' | grep auth-service | cut -d: -f2)" ]; then
-                echo "Building auth-service..."
-                DOCKER_BUILDKIT=1 docker compose build --no-cache auth-service
-              else
-                echo "Using existing auth-service image"
-              fi
-              
+              docker compose -f docker-compose.yaml -f docker-compose-loki.yaml down
+            
+              # Build the containers
+              docker compose -f docker-compose.yaml -f docker-compose-loki.yaml build
+            
+              # Modify docker-compose.yaml temporarily
+              sed -i.bak 's/- "8080:8080"/# - "8080:8080"/' docker-compose.yaml
+            
+              # Run migrations
+              docker compose -f docker-compose.yaml run --rm auth-app ./auth-app -migrate || true
+            
+              # Restore the original file
+              mv docker-compose.yaml.bak docker-compose.yaml
+            
               # Start containers
-              docker compose up -d
+              docker compose -f docker-compose.yaml -f docker-compose-loki.yaml up -d
             
               # Check status
-              sleep 2
-              docker compose ps
+              sleep 5
+              docker compose -f docker-compose.yaml -f docker-compose-loki.yaml ps
             fi
