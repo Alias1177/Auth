@@ -16,6 +16,7 @@ RUN go mod download
 COPY cmd/service ./cmd/service
 COPY internal ./internal
 COPY pkg ./pkg
+COPY db ./db
 
 # Билдим Go-приложение с оптимизациями
 RUN cd cmd/service && \
