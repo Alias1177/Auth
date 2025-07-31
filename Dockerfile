@@ -18,10 +18,15 @@ COPY internal ./internal
 COPY pkg ./pkg
 COPY db ./db
 
+# Устанавливаем переменные окружения для ускорения сборки
+ENV CGO_ENABLED=0
+ENV GOOS=linux
+ENV GOARCH=amd64
+
 # Билдим Go-приложение с оптимизациями
 RUN cd cmd/service && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -ldflags "-s -w -extldflags '-static'" \
+    go build \
+    -ldflags "-s -w" \
     -o auth-app
 
 # Этап 2: Запуск приложения в минимальном контейнере

@@ -1,20 +1,58 @@
-# Исключить все скрытые каталоги и файлы git/IDE
+# Git
 .git
-.idea
-.vscode
-*.log
+.gitignore
 
-# Исключить временные файлы
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+docker-compose*.yaml
+
+# IDE
+.vscode/
+.idea/
 *.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Documentation
+README.md
+docs/
+*.md
+
+# Tests
+*_test.go
+test/
+tests/
+
+# Build artifacts
+bin/
+dist/
+build/
+
+# Temporary files
+tmp/
+temp/
 *.tmp
 
-# Исключить старые и дублирующие файлы, которые могли остаться после рефакторинга
-**/auth_handler.go
-**/updating.go
-**/test_*
-**/mock_*
+# Coverage
+coverage/
+*.out
 
-# Исключить тесты (если не нужны в контейнере)
-*_test.go
+# Dependencies (if using vendor)
+vendor/
 
-db/*.bak 
+# GitHub Actions
+.github/ 
