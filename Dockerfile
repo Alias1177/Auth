@@ -27,7 +27,7 @@ ENV GOARCH=amd64
 RUN cd cmd/service && \
     go build \
     -ldflags "-s -w" \
-    -o auth-app
+    -o /app/auth-app
 
 # Этап 2: Запуск приложения в минимальном контейнере
 FROM alpine:latest
@@ -38,7 +38,7 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /app
 
 # Копируем только готовый бинарник из builder-стадии
-COPY --from=builder /app/cmd/service/auth-app ./auth-app
+COPY --from=builder /app/auth-app ./auth-app
 
 # Копируем миграции
 COPY db/migrations ./db/migrations
