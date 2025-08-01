@@ -18,6 +18,8 @@ jobs:
           script: |
             cd /home/Auth
             
+            docker-compose down
+            
             # Update code
             git pull origin main
             
@@ -26,7 +28,7 @@ jobs:
             chmod 644 .env
             
             # Quick restart with cache
-            docker-compose down
+            
             docker-compose up -d --build
             
             # Run migrations
