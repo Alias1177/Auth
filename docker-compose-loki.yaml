@@ -8,7 +8,9 @@ services:
     volumes:
       - ./loki-config.yaml:/etc/loki/loki-config.yaml
       - loki_data:/loki
-    command: -config.file=/etc/loki/loki-config.yaml
+    command: 
+      - -config.file=/etc/loki/loki-config.yaml
+      - -config.expand-env=true
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:3100/ready" ]
       interval: 10s
