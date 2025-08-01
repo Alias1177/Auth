@@ -1,12 +1,45 @@
-limits_config:
-  retention_period: 7d  # Хранить логи 7 дней
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+
+common:
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
 
 schema_config:
   configs:
-    - from: 2020-07-01  # с какой даты начинается применение данной конфигурации.
-      store: boltdb-shipper # Это указывает на тип хранилища индекса логов.
-      object_store: filesystem # куда будут сохраняться сами логи (не индексы, а фактические данные).
-      schema: v11 #Э то версия схемы данных, используемой для хранения индексов.
-      index: # Настройки индексации логов.
-        prefix: index_ # Префикс для имен файлов индексов. Все индексы будут начинаться с
-        period: 24h # Период времени, за который создается один индекс.
+    - from: 2020-10-24
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+storage_config:
+  tsdb:
+    dir: /loki/tsdb
+
+limits_config:
+  retention_period: 7d
+  allow_structured_metadata: true
+
+ruler:
+  alertmanager_url: http://localhost:9093
+
+# By default, Loki will send anonymous, but uniquely-identifiable usage and configuration
+# analytics to Grafana Labs. For more information on what's sent, look at
+# https://github.com/grafana/loki/blob/main/pkg/usagestats/stats.go
+# Refer to the buildReport method to see what goes into a report.
+#
+# If you would like to disable reporting, uncomment the following lines:
+analytics:
+  reporting_enabled: false

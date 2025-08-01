@@ -11,20 +11,14 @@ scrape_configs:
 
   - job_name: 'node'
     static_configs:
-      - targets: [ 'localhost:9101' ]
+      - targets: [ 'auth-node-exporter:9100' ]
     relabel_configs:
       - source_labels: [ __address__ ]
         target_label: instance
         replacement: 'host-system'
 
-  - job_name: 'postgres'
+  - job_name: 'kafka'
     static_configs:
-      - targets: ['postgres:5432']
-    metrics_path: '/metrics'
-    scrape_interval: 30s
-
-  - job_name: 'redis'
-    static_configs:
-      - targets: ['redis:6379']
+      - targets: ['kafka:9092']
     metrics_path: '/metrics'
     scrape_interval: 30s 
