@@ -9,11 +9,21 @@ services:
     restart: always
     ports:
       - "8081:8080"
-    env_file:
-      - .env
+    environment:
+      - DATABASE_DSN=postgres://admin:secret@postgres:5432/mydb?sslmode=disable
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
+      - JWT_SECRET=your-secret-key-here-change-in-production
+      - APP_ENV=development
+      - KAFKA_BROKER_ADDRESS=kafka:29092
+      - KAFKA_EMAIL_TOPIC=notifications
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8080
+      - GOOGLE_CLIENT_ID=934009209174-h6dccid24b93154o1hh3atdfnjjtrfvc.apps.googleusercontent.com
+      - GOOGLE_CLIENT_SECRET=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
+      - GOOGLE_REDIRECT_URL=http://localhost:8081/auth/google/callback
     volumes:
       - ./db/migrations:/app/db/migrations
-      - ./.env:/app/.env:ro
     depends_on:
       postgres:
         condition: service_healthy

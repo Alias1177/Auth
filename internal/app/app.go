@@ -108,10 +108,17 @@ func (a *App) initLogger() error {
 
 // loadConfig загружает конфигурацию
 func (a *App) loadConfig() error {
+	// Пытаемся загрузить из .env файла (для локальной разработки)
 	cfg, err := config.Load(".env")
 	if err != nil {
-		a.logger.Fatalw("Failed to load config:", "error", err)
-		return err
+		a.logger.Warnw("Failed to load .env file, using environment variables only:", "error", err)
+		// Если файл не найден, загружаем только из переменных окружения
+		cfg = &config.Config{}
+		err = config.LoadFromEnv(cfg)
+		if err != nil {
+			a.logger.Fatalw("Failed to load config from environment:", "error", err)
+			return err
+		}
 	}
 	a.config = cfg
 	return nil

@@ -94,3 +94,8 @@ func Load(path string) (*Config, error) {
 
 	return cfg, nil
 }
+
+// LoadFromEnv загружает конфигурацию только из переменных окружения
+func LoadFromEnv(cfg *Config) error {
+	return cleanenv.ReadEnv(cfg)
+}
