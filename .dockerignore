@@ -90,4 +90,8 @@ development/
 
 # Config files that shouldn't be in container
 config.local.*
-settings.local.* 
+settings.local.*
+
+# Prometheus/metrics files
+*metric*.go
+internal/middleware/metric.go 

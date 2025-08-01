@@ -51,8 +51,12 @@ jobs:
               # Stop all running containers
               docker-compose down --remove-orphans
             
+              # Clean Docker cache
+              docker system prune -f
+              docker builder prune -f
+            
               # Build the containers
-              docker-compose build
+              docker-compose build --no-cache
             
               # Run migrations
               docker-compose run --rm auth-service ./auth-app -migrate || true
@@ -68,8 +72,12 @@ jobs:
               # Stop all running containers
               docker compose down --remove-orphans
             
+              # Clean Docker cache
+              docker system prune -f
+              docker builder prune -f
+            
               # Build the containers
-              docker compose build
+              docker compose build --no-cache
             
               # Run migrations
               docker compose run --rm auth-service ./auth-app -migrate || true
