@@ -27,6 +27,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    user: "1000:1000"
 
   postgres:
     image: postgres:latest
@@ -82,10 +83,10 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+      KAFKA_LOG_DIRS: '/var/lib/kafka/data'
       CLUSTER_ID: '4L6g3nShT-eMCtK--X86sw'
     volumes:
-      - kafka_data:/tmp/kraft-combined-logs
+      - kafka_data:/var/lib/kafka/data
     healthcheck:
       test: [ "CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list" ]
       interval: 10s
