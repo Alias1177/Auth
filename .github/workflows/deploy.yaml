@@ -2,12 +2,12 @@ name: Deploy Auth CI/CD
 
 on:
   push:
-    branches: [ "main" ]
-  workflow_dispatch:
+    branches: [ "mainReadyTrade", "main" ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
       - name: Set up Docker
@@ -35,36 +35,9 @@ jobs:
           script: |
             cd /home/Auth
             
-            # Create .env file with better error handling
-            echo "Creating .env file..."
-            
             # Create .env file
             echo "${{ secrets.ENV_FILE_CONTENTS }}" > .env
             chmod 600 .env
-            
-            # Verify .env file was created and has content
-            if [ ! -s .env ]; then
-              echo "ERROR: .env file is empty or not created!"
-              exit 1
-            fi
-            
-            # Check if required environment variables are present
-            if ! grep -q "DATABASE_DSN=" .env; then
-              echo "ERROR: DATABASE_DSN not found in .env file!"
-              exit 1
-            fi
-            
-            # Verify go.mod exists and is valid
-            if [ ! -f "go.mod" ]; then
-              echo "ERROR: go.mod file not found!"
-              exit 1
-            fi
-            
-            # Check for any prometheus imports that might cause issues
-            if grep -r "prometheus" . --include="*.go" --exclude-dir=vendor; then
-              echo "WARNING: Found prometheus imports in Go files"
-              echo "This might cause build issues if dependencies are missing"
-            fi
             
             # Проверяем существование файлов docker-compose
             if [ ! -f "docker-compose.yaml" ]; then
@@ -75,76 +48,36 @@ jobs:
             
             # Используем docker-compose вместо docker compose, если доступен
             if command -v docker-compose &> /dev/null; then
-              # Stop all running containers and remove orphans
-              docker-compose down --remove-orphans
-              
-              # Clean up Docker cache to avoid stale builds
-              docker system prune -f
-              docker builder prune -f
+              # Stop all running containers
+              docker-compose down
             
               # Build the containers
-              docker-compose build --no-cache auth-service
+              docker-compose build
             
               # Run migrations
-              echo "Running database migrations..."
-              if ! docker-compose run --rm auth-service ./auth-app -migrate; then
-                echo "WARNING: Migration failed, but continuing deployment..."
-              fi
+              docker-compose run --rm auth-service ./auth-app -migrate || true
             
               # Start containers
               docker-compose up -d
             
               # Check status
-              sleep 10
+              sleep 5
               docker-compose ps
-              
-              # Check if auth-service is healthy
-              if ! docker-compose ps | grep -q "auth-service.*Up.*healthy"; then
-                echo "WARNING: auth-service is not healthy, checking logs..."
-                docker-compose logs auth-service
-              else
-                echo "✅ auth-service is healthy and running"
-              fi
-              
-              # Final status check
-              echo "=== Final Service Status ==="
-              docker-compose ps
-              echo "==========================="
             else
               # Попытаемся использовать docker compose (новый синтаксис)
-              # Stop all running containers and remove orphans
-              docker compose down --remove-orphans
-              
-              # Clean up Docker cache to avoid stale builds
-              docker system prune -f
-              docker builder prune -f
+              # Stop all running containers
+              docker compose down
             
               # Build the containers
-              docker compose build --no-cache auth-service
+              docker compose build
             
               # Run migrations
-              echo "Running database migrations..."
-              if ! docker compose run --rm auth-service ./auth-app -migrate; then
-                echo "WARNING: Migration failed, but continuing deployment..."
-              fi
+              docker compose run --rm auth-service ./auth-app -migrate || true
             
               # Start containers
               docker compose up -d
             
               # Check status
-              sleep 10
+              sleep 5
               docker compose ps
-              
-              # Check if auth-service is healthy
-              if ! docker compose ps | grep -q "auth-service.*Up.*healthy"; then
-                echo "WARNING: auth-service is not healthy, checking logs..."
-                docker compose logs auth-service
-              else
-                echo "✅ auth-service is healthy and running"
-              fi
-              
-              # Final status check
-              echo "=== Final Service Status ==="
-              docker compose ps
-              echo "==========================="
             fi
