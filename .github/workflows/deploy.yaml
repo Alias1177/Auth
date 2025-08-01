@@ -9,23 +9,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Docker
-        uses: docker/setup-buildx-action@v3
-      - name: Install docker-compose
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y docker-compose
-
-      - name: Copy files to server
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "."
-          target: "/home/Auth"
-
       - name: Deploy on server
         uses: appleboy/ssh-action@master
         with:
@@ -35,57 +18,20 @@ jobs:
           script: |
             cd /home/Auth
             
+            # Update code
+            git pull origin main
+            
             # Create .env file
             echo "${{ secrets.ENV_FILE_CONTENTS }}" > .env
             chmod 644 .env
             
-            # Проверяем существование файлов docker-compose
-            if [ ! -f "docker-compose.yaml" ]; then
-              echo "docker-compose.yaml not found!"
-              ls -la
-              exit 1
-            fi
+            # Quick restart with cache
+            docker-compose down
+            docker-compose up -d --build
             
-            # Используем docker-compose вместо docker compose, если доступен
-            if command -v docker-compose &> /dev/null; then
-              # Stop all running containers
-              docker-compose down --remove-orphans
+            # Run migrations
+            docker-compose exec -T auth-service ./auth-app -migrate || true
             
-              # Clean Docker cache
-              docker system prune -f
-              docker builder prune -f
-            
-              # Build the containers
-              docker-compose build --no-cache
-            
-              # Run migrations
-              docker-compose run --rm auth-service ./auth-app -migrate || true
-            
-              # Start containers
-              docker-compose up -d
-            
-              # Check status
-              sleep 5
-              docker-compose ps
-            else
-              # Попытаемся использовать docker compose (новый синтаксис)
-              # Stop all running containers
-              docker compose down --remove-orphans
-            
-              # Clean Docker cache
-              docker system prune -f
-              docker builder prune -f
-            
-              # Build the containers
-              docker compose build --no-cache
-            
-              # Run migrations
-              docker compose run --rm auth-service ./auth-app -migrate || true
-            
-              # Start containers
-              docker compose up -d
-            
-              # Check status
-              sleep 5
-              docker compose ps
-            fi
+            # Check status
+            sleep 3
+            docker-compose ps
