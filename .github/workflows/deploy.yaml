@@ -37,7 +37,13 @@ jobs:
             
             # Create .env file
             echo "${{ secrets.ENV_FILE_CONTENTS }}" > .env
-            chmod 600 .env
+            chmod 644 .env
+            
+            # Verify .env file was created
+            if [ ! -s .env ]; then
+              echo "ERROR: .env file is empty or not created!"
+              exit 1
+            fi
             
             # Проверяем существование файлов docker-compose
             if [ ! -f "docker-compose.yaml" ]; then
@@ -49,7 +55,7 @@ jobs:
             # Используем docker-compose вместо docker compose, если доступен
             if command -v docker-compose &> /dev/null; then
               # Stop all running containers
-              docker-compose down
+              docker-compose down --remove-orphans
             
               # Build the containers
               docker-compose build
@@ -66,7 +72,7 @@ jobs:
             else
               # Попытаемся использовать docker compose (новый синтаксис)
               # Stop all running containers
-              docker compose down
+              docker compose down --remove-orphans
             
               # Build the containers
               docker compose build

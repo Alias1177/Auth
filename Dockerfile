@@ -23,8 +23,7 @@ WORKDIR /app
 # Копируем только готовый бинарник из builder-стадии
 COPY --from=builder /app/cmd/service/auth-app ./auth-app
 
-# Копируем .env файл (по необходимости)
-COPY .env .env
+# .env файл будет создан во время выполнения
 
 # Копируем миграции
 COPY db/migrations /app/db/migrations
