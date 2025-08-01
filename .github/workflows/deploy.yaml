@@ -49,47 +49,35 @@ jobs:
             # Используем docker-compose вместо docker compose, если доступен
             if command -v docker-compose &> /dev/null; then
               # Stop all running containers
-              docker-compose -f docker-compose.yaml -f docker-compose-loki.yaml down
+              docker-compose down
             
               # Build the containers
-              docker-compose -f docker-compose.yaml -f docker-compose-loki.yaml build
-            
-              # Modify docker-compose.yaml temporarily
-              sed -i.bak 's/- "8080:8080"/# - "8080:8080"/' docker-compose.yaml
+              docker-compose build
             
               # Run migrations
-              docker-compose -f docker-compose.yaml run --rm auth-app ./auth-app -migrate || true
-            
-              # Restore the original file
-              mv docker-compose.yaml.bak docker-compose.yaml
+              docker-compose run --rm auth-service ./auth-app -migrate || true
             
               # Start containers
-              docker-compose -f docker-compose.yaml -f docker-compose-loki.yaml up -d
+              docker-compose up -d
             
               # Check status
               sleep 5
-              docker-compose -f docker-compose.yaml -f docker-compose-loki.yaml ps
+              docker-compose ps
             else
               # Попытаемся использовать docker compose (новый синтаксис)
               # Stop all running containers
-              docker compose -f docker-compose.yaml -f docker-compose-loki.yaml down
+              docker compose down
             
               # Build the containers
-              docker compose -f docker-compose.yaml -f docker-compose-loki.yaml build
-            
-              # Modify docker-compose.yaml temporarily
-              sed -i.bak 's/- "8080:8080"/# - "8080:8080"/' docker-compose.yaml
+              docker compose build
             
               # Run migrations
-              docker compose -f docker-compose.yaml run --rm auth-app ./auth-app -migrate || true
-            
-              # Restore the original file
-              mv docker-compose.yaml.bak docker-compose.yaml
+              docker compose run --rm auth-service ./auth-app -migrate || true
             
               # Start containers
-              docker compose -f docker-compose.yaml -f docker-compose-loki.yaml up -d
+              docker compose up -d
             
               # Check status
               sleep 5
-              docker compose -f docker-compose.yaml -f docker-compose-loki.yaml ps
+              docker compose ps
             fi
