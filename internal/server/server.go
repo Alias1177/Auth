@@ -11,7 +11,6 @@ import (
 	"github.com/Alias1177/Auth/internal/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // Server представляет HTTP сервер
@@ -57,10 +56,6 @@ func (s *Server) setupMiddleware() {
 	// Logger middleware
 	loggerMiddleware := middleware.NewLoggerMiddleware(logger)
 	s.router.Use(loggerMiddleware.Handler)
-
-	// Metrics middleware
-	metrics := middleware.NewMetricsMiddleware("auth_service")
-	s.router.Use(metrics.Middleware)
 }
 
 // setupRoutes настраивает маршруты
@@ -76,7 +71,6 @@ func (s *Server) setupRoutes() {
 	s.router.Get("/health", s.healthCheck)
 	s.router.Post("/login", authHandler.Login)
 	s.router.Post("/register", registrationHandler.Register)
-	s.router.Handle("/metrics", promhttp.Handler())
 	s.router.Post("/refresh-token", authHandler.Refresh)
 	s.router.Get("/auth/{provider}/callback", oauthHandler.GetCallback)
 	s.router.Get("/logout/{provider}", oauthHandler.GetLogout)
