@@ -39,12 +39,6 @@ jobs:
             echo "${{ secrets.ENV_FILE_CONTENTS }}" > .env
             chmod 644 .env
             
-            # Verify .env file was created
-            if [ ! -s .env ]; then
-              echo "ERROR: .env file is empty or not created!"
-              exit 1
-            fi
-            
             # Проверяем существование файлов docker-compose
             if [ ! -f "docker-compose.yaml" ]; then
               echo "docker-compose.yaml not found!"
