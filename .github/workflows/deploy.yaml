@@ -35,15 +35,31 @@ jobs:
           script: |
             cd /home/Auth
             
+            # Create .env file with better error handling
+            echo "Creating .env file..."
+            
+            # Check if secret exists
+            if [ -z "${{ secrets.ENV }}" ]; then
+              echo "ERROR: ENV secret is empty or not set!"
+              echo "Please configure the ENV secret in GitHub repository settings."
+              exit 1
+            fi
+            
             # Create .env file
-            echo "${{ secrets.ENV_FILE_CONTENTS }}" > .env
+            echo "=== Creating .env file ==="
+            echo "${{ secrets.ENV }}" > .env
             chmod 644 .env
+            echo ".env file created"
             
             # Verify .env file was created and has content
             if [ ! -s .env ]; then
               echo "ERROR: .env file is empty or not created!"
+              echo "This might be due to empty ENV secret or permission issues."
               exit 1
             fi
+            
+            echo "✅ .env file created successfully"
+            echo "File size: $(wc -c < .env) bytes"
             
             # Check if required environment variables are present
             if ! grep -q "DATABASE_DSN=" .env; then
