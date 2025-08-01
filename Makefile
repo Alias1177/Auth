@@ -86,9 +86,28 @@ clean:
 	docker builder prune -f
 	@echo "Кэш очищен"
 
+.PHONY: clean-all
+clean-all:
+	@echo "Полная очистка всех контейнеров и образов..."
+	docker-compose down -v
+	docker system prune -af
+	docker volume prune -f
+	@echo "Полная очистка завершена"
+
 .PHONY: logs
 logs:
 	docker-compose logs -f auth-service
+
+.PHONY: restart
+restart:
+	@echo "Перезапуск сервисов..."
+	docker-compose restart auth-service
+	@echo "Сервис перезапущен"
+
+.PHONY: status
+status:
+	@echo "Статус сервисов:"
+	docker-compose ps
 
 .PHONY: test
 test:

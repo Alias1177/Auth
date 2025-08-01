@@ -128,7 +128,7 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    container_name: grafana
+    container_name: auth-grafana
     restart: always
     ports:
       - "3000:3000"
