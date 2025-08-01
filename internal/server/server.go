@@ -2,9 +2,12 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/Alias1177/Auth/internal/app/container"
+	"github.com/Alias1177/Auth/internal/dto"
 	"github.com/Alias1177/Auth/internal/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
@@ -70,6 +73,7 @@ func (s *Server) setupRoutes() {
 	oauthHandler := s.container.GetOAuthHandler()
 
 	// Публичные маршруты
+	s.router.Get("/health", s.healthCheck)
 	s.router.Post("/login", authHandler.Login)
 	s.router.Post("/register", registrationHandler.Register)
 	s.router.Handle("/metrics", promhttp.Handler())
@@ -98,6 +102,19 @@ func (s *Server) Start(addr string) error {
 	}
 
 	return s.server.ListenAndServe()
+}
+
+// healthCheck обрабатывает health check запросы
+func (s *Server) healthCheck(w http.ResponseWriter, r *http.Request) {
+	response := dto.HealthResponse{
+		Status:    "healthy",
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		Version:   "1.0.0",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 }
 
 // Shutdown gracefully останавливает сервер

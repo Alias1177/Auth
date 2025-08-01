@@ -1,9 +1,10 @@
 # Git
 .git
 .gitignore
+.gitattributes
 
 # Docker
-Dockerfile
+Dockerfile*
 .dockerignore
 docker-compose*.yml
 docker-compose*.yaml
@@ -13,46 +14,80 @@ docker-compose*.yaml
 .idea/
 *.swp
 *.swo
+*~
 
 # OS
 .DS_Store
 Thumbs.db
+*.tmp
 
 # Logs
 *.log
 logs/
+log/
 
 # Environment
-.env
-.env.local
-.env.*.local
+.env*
+!.env.example
 
 # Documentation
 README.md
 docs/
 *.md
+LICENSE
 
 # Tests
 *_test.go
 test/
 tests/
+coverage/
+*.out
+*.prof
 
 # Build artifacts
 bin/
 dist/
 build/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Dependencies
+vendor/
+node_modules/
 
 # Temporary files
 tmp/
 temp/
-*.tmp
-
-# Coverage
-coverage/
-*.out
-
-# Dependencies (if using vendor)
-vendor/
+.cache/
 
 # GitHub Actions
-.github/ 
+.github/
+
+# CI/CD
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# Local development
+local/
+dev/
+development/
+
+# Database
+*.db
+*.sqlite
+
+# Backup files
+*.bak
+*.backup
+
+# Archives
+*.tar.gz
+*.zip
+*.rar
+
+# Config files that shouldn't be in container
+config.local.*
+settings.local.* 

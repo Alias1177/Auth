@@ -64,4 +64,33 @@ down:
 
 .PHONY: rebuild-api
 rebuild-api:
-	docker-compose build auth-app
+	docker-compose build auth-service
+
+# Оптимизированные команды для быстрой сборки
+.PHONY: build-fast
+build-fast:
+	@echo "Быстрая сборка с использованием кэша..."
+	DOCKER_BUILDKIT=1 docker-compose build auth-service
+	@echo "Сборка завершена"
+
+.PHONY: build-no-cache
+build-no-cache:
+	@echo "Сборка без кэша..."
+	DOCKER_BUILDKIT=1 docker-compose build --no-cache auth-service
+	@echo "Сборка завершена"
+
+.PHONY: clean
+clean:
+	@echo "Очистка Docker кэша..."
+	docker system prune -f
+	docker builder prune -f
+	@echo "Кэш очищен"
+
+.PHONY: logs
+logs:
+	docker-compose logs -f auth-service
+
+.PHONY: test
+test:
+	@echo "Запуск тестов..."
+	go test -v ./...
