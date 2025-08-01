@@ -109,6 +109,17 @@ status:
 	@echo "Статус сервисов:"
 	docker-compose ps
 
+.PHONY: ports
+ports:
+	@echo "Проверка занятых портов:"
+	@netstat -tlnp | grep -E ':(3000|8081|5433|6379|9091|9101|9093|2182|3100)' || echo "Порты свободны"
+
+.PHONY: health
+health:
+	@echo "Проверка health endpoints:"
+	@echo "Auth Service: http://localhost:8081/health"
+	@curl -s http://localhost:8081/health | jq . || echo "Auth service недоступен"
+
 .PHONY: test
 test:
 	@echo "Запуск тестов..."

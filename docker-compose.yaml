@@ -131,7 +131,7 @@ services:
     container_name: auth-grafana
     restart: always
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=ochenslozhniyparol
       - GF_USERS_ALLOW_SIGN_UP=false
