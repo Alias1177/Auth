@@ -20,7 +20,7 @@ type JWTConfig struct {
 
 // DatabaseConfig конфигурация для PostgreSQL
 type DatabaseConfig struct {
-	DSN string `env:"DATABASE_DSN" env-required:"true"`
+	DSN string `env:"DATABASE_DSN"`
 }
 
 // KafkaConfig конфигурация для Kafka
