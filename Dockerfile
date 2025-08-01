@@ -17,7 +17,7 @@ COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 WORKDIR /app
 COPY --from=builder /app/cmd/service/auth-app ./auth-app
 COPY --from=builder /app/db/migrations ./db/migrations
-RUN chown -R 1000:1000 /app
+RUN chown -R 1000:1000 /app && chmod 755 /app
 USER 1000:1000
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
