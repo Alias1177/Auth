@@ -19,7 +19,7 @@ func NewNotificationClient(baseURL string) *NotificationClient {
 	return &NotificationClient{
 		baseURL: baseURL,
 		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout: 30 * time.Second, // Увеличиваем timeout для внешних подключений
 		},
 	}
 }
@@ -48,25 +48,41 @@ func (c *NotificationClient) ValidatePasswordResetCode(email, code string) (bool
 		return false, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	resp, err := c.httpClient.Post(
-		c.baseURL+"/api/validate",
-		"application/json",
-		bytes.NewBuffer(requestData),
-	)
+	// Retry логика для внешних подключений
+	maxRetries := 3
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		resp, err := c.httpClient.Post(
+			c.baseURL+"/api/validate",
+			"application/json",
+			bytes.NewBuffer(requestData),
+		)
 
-	if err != nil {
-		return false, fmt.Errorf("failed to send request: %w", err)
+		if err != nil {
+			if attempt == maxRetries {
+				return false, fmt.Errorf("failed to send request after %d attempts: %w", maxRetries, err)
+			}
+			// Ждем перед повторной попыткой
+			time.Sleep(time.Duration(attempt) * time.Second)
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			if attempt == maxRetries {
+				return false, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+			}
+			// Ждем перед повторной попыткой
+			time.Sleep(time.Duration(attempt) * time.Second)
+			continue
+		}
+
+		var response ValidateCodeResponse
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			return false, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		return response.Valid, nil
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return false, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	var response ValidateCodeResponse
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return false, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	return response.Valid, nil
+	return false, fmt.Errorf("failed to validate code after %d attempts", maxRetries)
 }

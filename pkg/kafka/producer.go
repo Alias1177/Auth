@@ -36,6 +36,10 @@ func NewProducer(brokerAddress, topic string, log *logger.Logger) *Producer {
 		BatchSize:    1,
 		BatchTimeout: 10 * time.Millisecond,
 		Async:        false,
+		// Добавляем retry логику для внешних подключений
+		MaxAttempts:  3,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
 	})
 
 	log.Infow("Kafka producer initialized", "broker", brokerAddress, "topic", topic)
