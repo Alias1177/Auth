@@ -17,7 +17,7 @@ services:
       - JWT_SECRET=your-secret-key-here-change-in-production
       - APP_ENV=development
       # Kafka - используем локальный для разработки
-      - KAFKA_BROKER_ADDRESS=kafka:29092
+      - KAFKA_BROKER_ADDRESS=localhost:9092
       - KAFKA_EMAIL_TOPIC=notifications
       - NOTIFICATION_SERVICE_URL=http://31.97.76.108:8080
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
@@ -82,7 +82,7 @@ services:
     stop_grace_period: 10s
 
   zookeeper:
-    image: confluentinc/cp-zookeeper:latest
+    image: confluentinc/cp-zookeeper:7.4.0
     container_name: zookeeper_auth
     restart: unless-stopped
     environment:
@@ -95,7 +95,7 @@ services:
       - zookeeper_logs:/var/lib/zookeeper/log
 
   kafka:
-    image: confluentinc/cp-kafka:latest
+    image: confluentinc/cp-kafka:7.4.0
     container_name: kafka_auth
     restart: unless-stopped
     depends_on:
