@@ -19,22 +19,48 @@ jobs:
           script: |
             cd /home/Auth
             
+            echo "=== Starting deployment ==="
+            
+            # Останавливаем контейнеры
             docker-compose down
             
-            # Update code
-            git pull origin main
+            # Принудительно обновляем код с сервера
+            echo "=== Updating code ==="
+            git fetch origin
+            git reset --hard origin/main
+            git clean -fd
             
-            # Create .env file
+            # Удаляем все локальные .env файлы
+            echo "=== Cleaning old env files ==="
+            rm -f .env .env.backup .env.example example.env
+            
+            # Создаем чистый .env файл из секретов
+            echo "=== Creating .env file ==="
             echo "${{ secrets.ENV_FILE_CONTENTS }}" > .env
             chmod 644 .env
             
-            # Quick restart with cache
+            # Проверяем конфигурацию
+            echo "=== Checking configuration ==="
+            cat .env | grep -E "(KAFKA|NOTIFICATION)" || echo "No Kafka/Notification config found!"
             
+            # Пересобираем и запускаем
+            echo "=== Building and starting services ==="
             docker-compose up -d --build
             
-            # Run migrations
+            # Запускаем миграции
+            echo "=== Running migrations ==="
+            sleep 10
             docker-compose exec -T auth-service ./auth-app -migrate || true
             
-            # Check status
-            sleep 3
+            # Проверяем статус
+            echo "=== Checking service status ==="
+            sleep 5
             docker-compose ps
+            
+            # Проверяем логи
+            echo "=== Auth Service Logs ==="
+            docker-compose logs --tail=20 auth-service
+            
+            # Проверяем переменные окружения в контейнере
+            echo "=== Checking container environment ==="
+            docker-compose exec -T auth-service env | grep -E "(KAFKA|NOTIFICATION)" || echo "No Kafka/Notification env vars found!"
