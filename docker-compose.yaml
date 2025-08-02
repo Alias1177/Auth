@@ -93,11 +93,6 @@ services:
     volumes:
       - zookeeper_data:/var/lib/zookeeper/data
       - zookeeper_logs:/var/lib/zookeeper/log
-    healthcheck:
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
 
   kafka:
     image: confluentinc/cp-kafka:latest
@@ -105,7 +100,7 @@ services:
     restart: unless-stopped
     depends_on:
       zookeeper:
-        condition: service_healthy
+        condition: service_started
     ports:
       - "9092:9092"
       - "9101:9101"
