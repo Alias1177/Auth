@@ -17,22 +17,25 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /home/Auth
+            cd /home
             
-            echo "=== Starting deployment ==="
+            echo "=== Starting complete deployment ==="
             
-            # Останавливаем контейнеры
-            docker-compose down
+            # Останавливаем и удаляем все контейнеры
+            if [ -d "Auth" ]; then
+              cd Auth
+              docker-compose down -v
+              cd ..
+            fi
             
-            # Принудительно обновляем код с сервера
-            echo "=== Updating code ==="
-            git fetch origin
-            git reset --hard origin/main
-            git clean -fd
+            # Полностью удаляем старую директорию
+            echo "=== Removing old Auth directory ==="
+            rm -rf Auth
             
-            # Удаляем все локальные .env файлы
-            echo "=== Cleaning old env files ==="
-            rm -f .env .env.backup .env.example example.env
+            # Клонируем заново с чистого репозитория
+            echo "=== Cloning fresh repository ==="
+            git clone https://github.com/Alias1177/Auth.git
+            cd Auth
             
             # Создаем чистый .env файл из секретов
             echo "=== Creating .env file ==="
@@ -43,13 +46,13 @@ jobs:
             echo "=== Checking configuration ==="
             cat .env | grep -E "(KAFKA|NOTIFICATION)" || echo "No Kafka/Notification config found!"
             
-            # Пересобираем и запускаем
+            # Собираем и запускаем
             echo "=== Building and starting services ==="
             docker-compose up -d --build
             
             # Запускаем миграции
             echo "=== Running migrations ==="
-            sleep 10
+            sleep 15
             docker-compose exec -T auth-service ./auth-app -migrate || true
             
             # Проверяем статус
@@ -64,3 +67,5 @@ jobs:
             # Проверяем переменные окружения в контейнере
             echo "=== Checking container environment ==="
             docker-compose exec -T auth-service env | grep -E "(KAFKA|NOTIFICATION)" || echo "No Kafka/Notification env vars found!"
+            
+            echo "=== Deployment completed ==="
