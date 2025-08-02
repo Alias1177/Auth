@@ -29,6 +29,15 @@ jobs:
             echo "=== Graceful shutdown of existing services ==="
             docker-compose down --timeout 30 || echo "Some services may not have stopped gracefully"
             
+            # Удаляем старые контейнеры если есть проблемы
+            echo "=== Cleaning up old containers ==="
+            docker-compose rm -f || true
+            
+            # Принудительно удаляем все контейнеры и volumes если есть проблемы с Docker Compose
+            echo "=== Force cleanup if Docker Compose has issues ==="
+            docker-compose down -v --remove-orphans || true
+            docker system prune -f || true
+            
             # Ждем освобождения портов
             echo "=== Waiting for ports to be released ==="
             sleep 10
@@ -52,13 +61,28 @@ jobs:
             echo "${{ secrets.ENV_FILE_CONTENTS }}" > .env
             chmod 644 .env
             
+            # Принудительно устанавливаем IPv4 адрес для Kafka
+            echo "=== Ensuring IPv4 Kafka address ==="
+            sed -i 's/KAFKA_BROKER_ADDRESS=localhost:9092/KAFKA_BROKER_ADDRESS=127.0.0.1:9092/' .env
+            sed -i 's/KAFKA_BROKER_ADDRESS=\[::1\]:9092/KAFKA_BROKER_ADDRESS=127.0.0.1:9092/' .env
+            
             # Проверяем конфигурацию
             echo "=== Checking configuration ==="
             cat .env | grep -E "(KAFKA|NOTIFICATION)" || echo "No Kafka/Notification config found!"
             
             # Запускаем сервисы с новой версией
             echo "=== Building and starting services ==="
-            docker-compose up -d --build --force-recreate
+            if ! docker-compose up -d --build --force-recreate; then
+              echo "❌ Docker Compose failed, trying alternative approach"
+              echo "=== Starting services individually ==="
+              docker-compose up -d postgres redis zookeeper kafka
+              sleep 30
+              docker-compose up -d auth-service
+            fi
+            
+            # Проверяем логи если есть проблемы
+            echo "=== Checking logs for errors ==="
+            docker-compose logs --tail=10 || true
             
             # Ждем запуска и проверяем health
             echo "=== Waiting for service startup ==="
