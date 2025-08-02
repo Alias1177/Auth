@@ -33,9 +33,9 @@ jobs:
             echo "=== Cleaning up old containers ==="
             docker-compose rm -f || true
             
-            # Принудительно удаляем все контейнеры и volumes если есть проблемы с Docker Compose
+            # Принудительно удаляем все контейнеры (НО НЕ VOLUMES) если есть проблемы с Docker Compose
             echo "=== Force cleanup if Docker Compose has issues ==="
-            docker-compose down -v --remove-orphans || true
+            docker-compose down --remove-orphans || true
             docker system prune -f || true
             
             # Ждем освобождения портов
@@ -56,19 +56,9 @@ jobs:
             git pull origin main --rebase
             git stash pop || true  # Восстанавливаем если есть
             
-            # Обновляем .env файл
-            echo "=== Updating environment ==="
-            echo "${{ secrets.ENV_FILE_CONTENTS }}" > .env
-            chmod 644 .env
-            
-            # Принудительно устанавливаем IPv4 адрес для Kafka
-            echo "=== Ensuring IPv4 Kafka address ==="
-            sed -i 's/KAFKA_BROKER_ADDRESS=localhost:9092/KAFKA_BROKER_ADDRESS=127.0.0.1:9092/' .env
-            sed -i 's/KAFKA_BROKER_ADDRESS=\[::1\]:9092/KAFKA_BROKER_ADDRESS=127.0.0.1:9092/' .env
-            
             # Проверяем конфигурацию
             echo "=== Checking configuration ==="
-            cat .env | grep -E "(KAFKA|NOTIFICATION)" || echo "No Kafka/Notification config found!"
+            echo "Using environment variables from docker-compose.yaml"
             
             # Запускаем сервисы с новой версией
             echo "=== Building and starting services ==="
@@ -129,5 +119,9 @@ jobs:
             # Проверяем переменные окружения
             echo "=== Checking environment variables ==="
             docker-compose exec -T auth-service env | grep -E "(KAFKA|NOTIFICATION)" || echo "No Kafka/Notification env vars found!"
+            
+            # Проверяем конфигурацию в docker-compose
+            echo "=== Checking docker-compose environment ==="
+            grep -A 10 "environment:" docker-compose.yaml | grep -E "(KAFKA|NOTIFICATION)" || echo "No Kafka/Notification config in docker-compose!"
             
             echo "=== Deployment completed ==="

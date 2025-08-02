@@ -93,7 +93,7 @@ func Load(path string) (*Config, error) {
 	}
 
 	// Логируем загруженную конфигурацию для диагностики
-	log.Printf("Loaded Kafka config - BrokerAddress: %s, EmailTopic: %s", cfg.Kafka.BrokerAddress, cfg.Kafka.EmailTopic)
+	log.Printf("Loaded Kafka config - BrokerAddress: %s, Topic: %s", cfg.Kafka.BrokerAddress, cfg.Kafka.EmailTopic)
 	log.Printf("Loaded Notification config - ServiceURL: %s", cfg.Notification.ServiceURL)
 
 	return cfg, nil
@@ -107,7 +107,7 @@ func LoadFromEnv(cfg *Config) error {
 	}
 
 	// Логируем загруженную конфигурацию для диагностики
-	log.Printf("Loaded from ENV - Kafka BrokerAddress: %s, EmailTopic: %s", cfg.Kafka.BrokerAddress, cfg.Kafka.EmailTopic)
+	log.Printf("Loaded from ENV - Kafka BrokerAddress: %s, Topic: %s", cfg.Kafka.BrokerAddress, cfg.Kafka.EmailTopic)
 	log.Printf("Loaded from ENV - Notification ServiceURL: %s", cfg.Notification.ServiceURL)
 
 	return nil
