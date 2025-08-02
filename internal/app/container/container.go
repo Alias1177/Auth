@@ -2,6 +2,7 @@ package container
 
 import (
 	"context"
+	"time"
 
 	"github.com/Alias1177/Auth/db/migrations/manager"
 	"github.com/Alias1177/Auth/internal/config"
@@ -19,6 +20,7 @@ import (
 	"github.com/Alias1177/Auth/pkg/logger"
 	"github.com/Alias1177/Auth/pkg/notification"
 	"github.com/Alias1177/Auth/pkg/validator"
+	redisClient "github.com/redis/go-redis/v9"
 )
 
 // Container содержит все зависимости приложения
@@ -32,9 +34,9 @@ type Container struct {
 	mainRepo     *repository.Repository
 
 	// Services
-	tokenManager         service.TokenManager
-	kafkaProducer        *kafka.Producer
-	notificationClient   *notification.NotificationClient
+	tokenManager       service.TokenManager
+	kafkaProducer      *kafka.Producer
+	notificationClient *notification.NotificationClient
 
 	// Handlers
 	authHandler          *auth.AuthHandler
@@ -76,17 +78,59 @@ func New(ctx context.Context, cfg *config.Config, log *logger.Logger) (*Containe
 
 // initDatabase инициализирует подключения к базам данных
 func (c *Container) initDatabase(ctx context.Context) error {
-	// Подключение к PostgreSQL
-	postgresDB, err := connect.NewPostgresDB(ctx, c.config.Database.DSN)
+	// Подключение к PostgreSQL с retry логикой
+	var postgresDB *connect.PostgresDB
+	var err error
+
+	maxRetries := 10
+	retryDelay := 2 * time.Second
+
+	for i := 0; i < maxRetries; i++ {
+		c.logger.Infow("Attempting to connect to PostgreSQL", "attempt", i+1, "max_attempts", maxRetries)
+
+		postgresDB, err = connect.NewPostgresDB(ctx, c.config.Database.DSN)
+		if err == nil {
+			c.logger.Infow("Successfully connected to PostgreSQL")
+			break
+		}
+
+		c.logger.Warnw("Failed to connect to PostgreSQL, retrying",
+			"attempt", i+1, "error", err, "next_retry_in", retryDelay)
+
+		if i < maxRetries-1 {
+			time.Sleep(retryDelay)
+			retryDelay *= 2 // Exponential backoff
+		}
+	}
+
 	if err != nil {
-		c.logger.Fatalw("Failed to connect PostgreSQL:", "error", err)
+		c.logger.Fatalw("Failed to connect PostgreSQL after all retries:", "error", err)
 		return err
 	}
 
-	// Подключение к Redis
-	redisClient := config.NewRedisClient(c.config.Redis)
+	// Подключение к Redis с retry логикой
+	var redisClient *redisClient.Client
+
+	for i := 0; i < maxRetries; i++ {
+		c.logger.Infow("Attempting to connect to Redis", "attempt", i+1, "max_attempts", maxRetries)
+
+		redisClient = config.NewRedisClient(c.config.Redis)
+		if _, err := redisClient.Ping(ctx).Result(); err == nil {
+			c.logger.Infow("Successfully connected to Redis")
+			break
+		}
+
+		c.logger.Warnw("Failed to connect to Redis, retrying",
+			"attempt", i+1, "error", err, "next_retry_in", retryDelay)
+
+		if i < maxRetries-1 {
+			time.Sleep(retryDelay)
+			retryDelay *= 2 // Exponential backoff
+		}
+	}
+
 	if _, err := redisClient.Ping(ctx).Result(); err != nil {
-		c.logger.Fatalw("Failed to connect Redis", "error", err)
+		c.logger.Fatalw("Failed to connect Redis after all retries:", "error", err)
 		postgresDB.Close()
 		return err
 	}

@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"flag"
+	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -108,7 +110,7 @@ func (a *App) initLogger() error {
 
 // loadConfig загружает конфигурацию
 func (a *App) loadConfig() error {
-	// Пытаемся загрузить из .env файла (для локальной разработки)
+	// Пытаемся загрузить из .env файла (для локальной разработки и Docker)
 	cfg, err := config.Load(".env")
 	if err != nil {
 		a.logger.Warnw("Failed to load .env file, using environment variables only:", "error", err)
@@ -119,6 +121,8 @@ func (a *App) loadConfig() error {
 			a.logger.Fatalw("Failed to load config from environment:", "error", err)
 			return err
 		}
+	} else {
+		a.logger.Infow("Successfully loaded config from .env file")
 	}
 	a.config = cfg
 	return nil
@@ -152,6 +156,11 @@ func (a *App) initServer() error {
 
 // runWithGracefulShutdown запускает сервер с graceful shutdown
 func (a *App) runWithGracefulShutdown() error {
+	// Проверяем доступность порта перед запуском
+	if err := a.checkPortAvailability(":8080"); err != nil {
+		return fmt.Errorf("port 8080 is not available: %w", err)
+	}
+
 	// Канал для получения сигналов
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -176,4 +185,14 @@ func (a *App) runWithGracefulShutdown() error {
 
 		return a.server.Shutdown(shutdownCtx)
 	}
+}
+
+// checkPortAvailability проверяет доступность порта
+func (a *App) checkPortAvailability(addr string) error {
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+	ln.Close()
+	return nil
 }

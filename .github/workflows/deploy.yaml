@@ -17,28 +17,38 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /home
+            cd /home/Auth
             
-            echo "=== Starting complete deployment ==="
+            echo "=== Starting deployment ==="
             
-            # Останавливаем и удаляем все контейнеры
-            if [ -d "Auth" ]; then
-              cd Auth
-              docker-compose down -v
-              cd ..
+            # Сохраняем текущее состояние
+            echo "=== Saving current state ==="
+            docker-compose ps
+            
+            # Graceful shutdown существующих сервисов
+            echo "=== Graceful shutdown of existing services ==="
+            docker-compose down --timeout 30 || echo "Some services may not have stopped gracefully"
+            
+            # Ждем освобождения портов
+            echo "=== Waiting for ports to be released ==="
+            sleep 10
+            
+            # Проверяем, что порты свободны
+            if lsof -i :8081 > /dev/null 2>&1; then
+              echo "❌ Port 8081 is still in use, forcing cleanup"
+              lsof -ti :8081 | xargs kill -9 || true
+              sleep 5
             fi
             
-            # Полностью удаляем старую директорию
-            echo "=== Removing old Auth directory ==="
-            rm -rf Auth
+            # Обновляем код с merge strategy
+            echo "=== Updating code ==="
+            git fetch origin
+            git stash  # Сохраняем локальные изменения
+            git pull origin main --rebase
+            git stash pop || true  # Восстанавливаем если есть
             
-            # Клонируем заново с чистого репозитория
-            echo "=== Cloning fresh repository ==="
-            git clone https://github.com/Alias1177/Auth.git
-            cd Auth
-            
-            # Создаем чистый .env файл из секретов
-            echo "=== Creating .env file ==="
+            # Обновляем .env файл
+            echo "=== Updating environment ==="
             echo "${{ secrets.ENV_FILE_CONTENTS }}" > .env
             chmod 644 .env
             
@@ -46,26 +56,54 @@ jobs:
             echo "=== Checking configuration ==="
             cat .env | grep -E "(KAFKA|NOTIFICATION)" || echo "No Kafka/Notification config found!"
             
-            # Собираем и запускаем
+            # Запускаем сервисы с новой версией
             echo "=== Building and starting services ==="
-            docker-compose up -d --build
+            docker-compose up -d --build --force-recreate
             
-            # Запускаем миграции
-            echo "=== Running migrations ==="
+            # Ждем запуска и проверяем health
+            echo "=== Waiting for service startup ==="
             sleep 15
-            docker-compose exec -T auth-service ./auth-app -migrate || true
             
-            # Проверяем статус
-            echo "=== Checking service status ==="
-            sleep 5
+            # Проверяем статус контейнеров
+            echo "=== Checking container status ==="
             docker-compose ps
             
-            # Проверяем логи
-            echo "=== Auth Service Logs ==="
-            docker-compose logs --tail=20 auth-service
+            # Health check после деплоя
+            echo "=== Post-deployment health check ==="
+            for i in {1..10}; do
+              if curl -f http://localhost:8081/health > /dev/null 2>&1; then
+                echo "✅ Service is healthy after deployment"
+                break
+              else
+                echo "⏳ Waiting for service to become healthy... (attempt $i/10)"
+                if [ $i -eq 10 ]; then
+                  echo "❌ Service failed to become healthy after 10 attempts"
+                  echo "=== Checking logs for errors ==="
+                  docker-compose logs --tail=20 auth-service
+                  exit 1
+                fi
+                sleep 10
+              fi
+            done
             
-            # Проверяем переменные окружения в контейнере
-            echo "=== Checking container environment ==="
+            # Запускаем миграции только если сервис здоров
+            echo "=== Running migrations ==="
+            if curl -f http://localhost:8081/health > /dev/null 2>&1; then
+              docker-compose exec -T auth-service ./auth-app -migrate || echo "Migration failed but continuing"
+            else
+              echo "❌ Service not healthy, skipping migrations"
+            fi
+            
+            # Финальная проверка
+            echo "=== Final status check ==="
+            docker-compose ps
+            
+            # Проверяем логи на ошибки
+            echo "=== Checking for errors in logs ==="
+            docker-compose logs --tail=10 auth-service | grep -i error || echo "No errors found in recent logs"
+            
+            # Проверяем переменные окружения
+            echo "=== Checking environment variables ==="
             docker-compose exec -T auth-service env | grep -E "(KAFKA|NOTIFICATION)" || echo "No Kafka/Notification env vars found!"
             
             echo "=== Deployment completed ==="

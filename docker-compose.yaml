@@ -6,7 +6,7 @@ services:
       args:
         BUILDKIT_INLINE_CACHE: 1
     container_name: auth-service
-    restart: always
+    restart: unless-stopped
     ports:
       - "8081:8080"
     environment:
@@ -23,25 +23,29 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - GOOGLE_REDIRECT_URL=${GOOGLE_REDIRECT_URL}
+    env_file:
+      - .env
     volumes:
       - ./db/migrations:/app/db/migrations
+      - ./.env:/app/.env:ro
     depends_on:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 40s
+      retries: 5
+      start_period: 60s
+    stop_grace_period: 30s
     user: "1000:1000"
 
   postgres:
     image: postgres:latest
     container_name: postgres_auth
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: secret
@@ -55,12 +59,13 @@ services:
       test: [ "CMD", "pg_isready", "-U", "admin", "-d", "mydb" ]
       interval: 10s
       retries: 5
-      start_period: 5s
+      start_period: 10s
+    stop_grace_period: 10s
 
   redis:
     image: redis:latest
     container_name: redis_auth
-    restart: always
+    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
@@ -71,12 +76,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-
-
-
-
-
-
+      start_period: 5s
+    stop_grace_period: 10s
 
 volumes:
   postgres_data:
