@@ -25,13 +25,13 @@ type DatabaseConfig struct {
 
 // KafkaConfig конфигурация для Kafka
 type KafkaConfig struct {
-	BrokerAddress string `env:"KAFKA_BROKER_ADDRESS" env-default:"localhost:29092"`
+	BrokerAddress string `env:"KAFKA_BROKER_ADDRESS" env-default:"31.97.76.108:29092"`
 	EmailTopic    string `env:"KAFKA_EMAIL_TOPIC" env-default:"notifications"`
 }
 
 // NotificationConfig конфигурация для Notification Service
 type NotificationConfig struct {
-	ServiceURL string `env:"NOTIFICATION_SERVICE_URL" env-default:"http://notification-service:8080"`
+	ServiceURL string `env:"NOTIFICATION_SERVICE_URL" env-default:"http://31.97.76.108:8080"`
 }
 
 // SentryConfig конфигурация для Sentry
@@ -92,10 +92,23 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 
+	// Логируем загруженную конфигурацию для диагностики
+	log.Printf("Loaded Kafka config - BrokerAddress: %s, EmailTopic: %s", cfg.Kafka.BrokerAddress, cfg.Kafka.EmailTopic)
+	log.Printf("Loaded Notification config - ServiceURL: %s", cfg.Notification.ServiceURL)
+
 	return cfg, nil
 }
 
 // LoadFromEnv загружает конфигурацию только из переменных окружения
 func LoadFromEnv(cfg *Config) error {
-	return cleanenv.ReadEnv(cfg)
+	err := cleanenv.ReadEnv(cfg)
+	if err != nil {
+		return err
+	}
+
+	// Логируем загруженную конфигурацию для диагностики
+	log.Printf("Loaded from ENV - Kafka BrokerAddress: %s, EmailTopic: %s", cfg.Kafka.BrokerAddress, cfg.Kafka.EmailTopic)
+	log.Printf("Loaded from ENV - Notification ServiceURL: %s", cfg.Notification.ServiceURL)
+
+	return nil
 }
