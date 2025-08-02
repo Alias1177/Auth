@@ -16,8 +16,8 @@ services:
       - REDIS_DB=0
       - JWT_SECRET=your-secret-key-here-change-in-production
       - APP_ENV=development
-      # Kafka - используем IPv4 адрес для избежания проблем с IPv6
-      - KAFKA_BROKER_ADDRESS=127.0.0.1:9092
+      # Kafka - используем внутренний адрес в Docker сети
+      - KAFKA_BROKER_ADDRESS=kafka:29092
       - KAFKA_EMAIL_TOPIC=notifications
       - NOTIFICATION_SERVICE_URL=http://31.97.76.108:8080
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
