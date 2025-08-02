@@ -19,6 +19,7 @@ services:
       # Kafka - используем локальный для разработки
       - KAFKA_BROKER_ADDRESS=kafka:29092
       - KAFKA_EMAIL_TOPIC=notifications
+      - NOTIFICATION_SERVICE_URL=http://31.97.76.108:8080
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - GOOGLE_REDIRECT_URL=${GOOGLE_REDIRECT_URL}
@@ -93,7 +94,6 @@ services:
       - zookeeper_data:/var/lib/zookeeper/data
       - zookeeper_logs:/var/lib/zookeeper/log
     healthcheck:
-      test: ["CMD", "echo", "ruok" | nc localhost 2181 || exit 1]
       interval: 10s
       timeout: 5s
       retries: 3
