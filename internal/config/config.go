@@ -25,7 +25,7 @@ type DatabaseConfig struct {
 
 // KafkaConfig конфигурация для Kafka
 type KafkaConfig struct {
-	BrokerAddress string `env:"KAFKA_BROKER_ADDRESS" env-default:"31.97.76.108:29092"`
+	BrokerAddress string `env:"KAFKA_BROKER_ADDRESS" env-default:"31.97.76.108:9092"`
 	EmailTopic    string `env:"KAFKA_EMAIL_TOPIC" env-default:"notifications"`
 }
 
