@@ -25,13 +25,13 @@ type DatabaseConfig struct {
 
 // KafkaConfig конфигурация для Kafka
 type KafkaConfig struct {
-	BrokerAddress string `env:"KAFKA_BROKER_ADDRESS" env-default:"31.97.76.108:9092"`
+	BrokerAddress string `env:"KAFKA_BROKER_ADDRESS" env-default:"localhost:29092"`
 	EmailTopic    string `env:"KAFKA_EMAIL_TOPIC" env-default:"notifications"`
 }
 
 // NotificationConfig конфигурация для Notification Service
 type NotificationConfig struct {
-	ServiceURL string `env:"NOTIFICATION_SERVICE_URL" env-default:"http://31.97.76.108:8080"`
+	ServiceURL string `env:"NOTIFICATION_SERVICE_URL" env-default:"http://notification-service:8080"`
 }
 
 // SentryConfig конфигурация для Sentry
